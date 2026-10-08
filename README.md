@@ -50,7 +50,7 @@ The schema is the same everywhere. What an environment starts with comes from `d
 - 30 field agents, 10 general management assistants and one developer, `devuser`. All of them log in with `staff-dev-password`.
 - Groups filled from the job title, the way a dynamic group fills from a directory attribute, plus `SGT-Developers`, which holds every sgt and poi role in dev, and `POI-Planners` and `POI-Analysts`, which start empty.
 - `sgt-api-dev` with the roles `field-agent`, `general-management-assistant` and `admin`, and the frontend `sgt-web-dev` registered to log people into it.
-- `poi-api-dev` and `staff-directory-api-dev` with their scopes, and `sgt-service-dev`, sgt's backend, granted them. Its secret is `sgt-service-dev-secret`.
+- `poi-api-dev`, `staff-directory-api-dev` and `beneficiarios-api-dev` with their scopes, and `sgt-service-dev`, sgt's backend, granted them. Its secret is `sgt-service-dev-secret`.
 - `poi-api-dev`'s roles `planner`, `analyst` and `admin`, and the frontend `poi-web-dev` registered to log people into it.
 
 ## Moving to the real deployment
