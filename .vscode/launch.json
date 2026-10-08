@@ -1,0 +1,12 @@
+{
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Staff (Spring Boot)",
+      "request": "launch",
+      "mainClass": "lat.soulware.staff.StaffApplication",
+      "projectName": "staff",
+      "envFile": "${workspaceFolder}/.env"
+    }
+  ]
+}
