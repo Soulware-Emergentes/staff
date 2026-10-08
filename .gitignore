@@ -47,3 +47,6 @@ src/test/java/lat/soulware/staff/*
 .github/
 docs/
 deploy/
+
+### Signing keys, created locally from .env.example ###
+keys/
