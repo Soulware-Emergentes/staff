@@ -42,9 +42,9 @@ build/
 logs/
 
 ### Selfish
-src/test/java/lat/soulware/staff/*
-!src/test/java/lat/soulware/staff/ApplicationLaunchIT.java
-.github/
+src/test/java/lat/soulware/staff/architecture/
+.github/*
+!.github/workflows/
 /docs/
 deploy/
 
