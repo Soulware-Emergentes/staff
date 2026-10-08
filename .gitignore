@@ -45,7 +45,7 @@ logs/
 src/test/java/lat/soulware/staff/*
 !src/test/java/lat/soulware/staff/ApplicationLaunchIT.java
 .github/
-docs/
+/docs/
 deploy/
 
 ### Signing keys, created locally from .env.example ###
