@@ -42,8 +42,11 @@ build/
 logs/
 
 ### Selfish
-src/test/java/lat/soulware/staff/*
-!src/test/java/lat/soulware/staff/ApplicationLaunchIT.java
-.github/
-docs/
+src/test/java/lat/soulware/staff/architecture/
+.github/*
+!.github/workflows/
+/docs/
 deploy/
+
+### Signing keys, created locally from .env.example ###
+keys/
