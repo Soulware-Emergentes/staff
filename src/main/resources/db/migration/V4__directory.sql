@@ -1,14 +1,19 @@
 -- The directory: what Active Directory answers once it is in place. People are
 -- keyed by the objectGUID of their account, and groups likewise. Job title and
 -- department say who a person is; they grant nothing in any application.
--- A person without a password hash cannot log in.
+-- A person without a password hash cannot log in. A person's photo is the image
+-- the directory holds for them, as thumbnailPhoto does in Active Directory, and
+-- is stored with its media type; a person without one has neither.
 CREATE TABLE people (
     id UUID PRIMARY KEY,
     username VARCHAR(255) NOT NULL UNIQUE,
     display_name VARCHAR(255) NOT NULL,
     job_title VARCHAR(255) NOT NULL,
     department VARCHAR(255) NOT NULL,
-    password_hash VARCHAR(255)
+    password_hash VARCHAR(255),
+    photo BYTEA,
+    photo_media_type VARCHAR(100),
+    CHECK ((photo IS NULL) = (photo_media_type IS NULL))
 );
 
 CREATE INDEX people_job_title_display_name ON people (job_title, display_name);

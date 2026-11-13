@@ -2,11 +2,12 @@ package lat.soulware.staff.identityprovider.infrastructure.security.authorizatio
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 
+import org.springframework.security.authentication.AuthenticationTrustResolver;
+import org.springframework.security.authentication.AuthenticationTrustResolverImpl;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
@@ -31,6 +32,8 @@ import lat.soulware.staff.identityprovider.application.queries.grants.projection
 @Component
 public class EligibilityValidator implements Consumer<OAuth2AuthorizationCodeRequestAuthenticationContext> {
 
+    private static final AuthenticationTrustResolver TRUST_RESOLVER = new AuthenticationTrustResolverImpl();
+
     private final DirectoryApi directoryApi;
     private final GrantProjection grantProjection;
 
@@ -43,7 +46,8 @@ public class EligibilityValidator implements Consumer<OAuth2AuthorizationCodeReq
     public void accept(OAuth2AuthorizationCodeRequestAuthenticationContext context) {
         OAuth2AuthorizationCodeRequestAuthenticationToken request = context.getAuthentication();
         Authentication person = (Authentication) request.getPrincipal();
-        boolean hasLoggedIn = Objects.nonNull(person) && person.isAuthenticated();
+        // An anonymous browser carries an anonymous token, which counts as authenticated.
+        boolean hasLoggedIn = TRUST_RESOLVER.isAuthenticated(person);
         if (!hasLoggedIn) {
             return;
         }

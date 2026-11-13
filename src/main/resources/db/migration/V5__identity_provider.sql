@@ -5,11 +5,38 @@
 -- Groups are named by the directory's objectGUIDs and carry no foreign key,
 -- since the directory may live in another system.
 
--- An API tokens are issued for. Its identifier is the audience they carry.
+-- A system, whatever environments it is deployed to, such as sgt. Its name and
+-- icon are what people are shown, the same in every environment, the way an
+-- app registration's logo is. The icon is stored with its media type; a system
+-- without one has neither.
+CREATE TABLE applications (
+    id UUID PRIMARY KEY,
+    name VARCHAR(255) NOT NULL UNIQUE,
+    icon BYTEA,
+    icon_media_type VARCHAR(100),
+    CHECK ((icon IS NULL) = (icon_media_type IS NULL))
+);
+
+-- The environments a system is deployed to. Every deployment's API and clients
+-- name the one they belong to, so identifiers never have to be parsed for it.
+CREATE TABLE environments (
+    code VARCHAR(20) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL
+);
+
+INSERT INTO environments (code, name) VALUES
+    ('dev', 'Development'),
+    ('qa', 'Quality assurance'),
+    ('prod', 'Production');
+
+-- An API tokens are issued for: one system's API in one environment. Its
+-- identifier is the audience they carry.
 CREATE TABLE api_resources (
     id UUID PRIMARY KEY,
     identifier VARCHAR(255) NOT NULL UNIQUE,
-    name VARCHAR(255) NOT NULL
+    application_id UUID NOT NULL REFERENCES applications (id),
+    environment VARCHAR(20) NOT NULL REFERENCES environments (code),
+    UNIQUE (application_id, environment)
 );
 
 -- The roles an API defines for people. Their meaning is the API's own.
@@ -30,14 +57,20 @@ CREATE TABLE api_scopes (
     UNIQUE (resource_id, value)
 );
 
--- A registered application. A public client logs people in with PKCE; a
--- confidential one holds a secret and gets tokens for itself.
+-- A registered application: one of a system's frontends or backends in one
+-- environment. A public client logs people in with PKCE, and its home URI is
+-- where the portal opens it; a confidential one holds a secret and gets tokens
+-- for itself.
 CREATE TABLE client_registrations (
     id UUID PRIMARY KEY,
     client_id VARCHAR(255) NOT NULL UNIQUE,
+    application_id UUID NOT NULL REFERENCES applications (id),
+    environment VARCHAR(20) NOT NULL REFERENCES environments (code),
     kind VARCHAR(20) NOT NULL CHECK (kind IN ('PUBLIC', 'CONFIDENTIAL')),
     secret_hash VARCHAR(255),
-    CHECK ((kind = 'CONFIDENTIAL') = (secret_hash IS NOT NULL))
+    home_uri VARCHAR(1000),
+    CHECK ((kind = 'CONFIDENTIAL') = (secret_hash IS NOT NULL)),
+    CHECK ((kind = 'PUBLIC') = (home_uri IS NOT NULL))
 );
 
 -- Where a login or a logout may send the browser back to.

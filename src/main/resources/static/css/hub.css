@@ -1,0 +1,398 @@
+/* The hub at /, where a login no application asked for lands. Its tokens come from tokens.css. */
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+.skip-link {
+  position: absolute;
+  top: var(--space-sm);
+  left: var(--space-sm);
+  z-index: 10;
+  padding: var(--space-sm) var(--space-lg);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-on-primary);
+  background-color: var(--color-brand-primary);
+  border-radius: var(--radius-md);
+  transform: translateY(-200%);
+}
+
+.skip-link:focus-visible {
+  transform: none;
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+}
+
+/* ---------- Top bar ---------- */
+
+.topbar {
+  background-color: var(--color-bg-surface);
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.topbar__inner {
+  max-width: var(--container-content);
+  margin: 0 auto;
+  padding: var(--space-md) var(--space-lg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+}
+
+@media (min-width: 40rem) {
+  .topbar__inner {
+    padding: var(--space-md) var(--space-2xl);
+  }
+}
+
+.topbar__logo {
+  display: block;
+  width: auto;
+  height: 2.25rem;
+}
+
+.topbar__account {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+.person {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+/* Label/Medium: Roboto Medium 14/20 */
+.person__avatar {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: none;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  color: var(--color-text-on-primary);
+  background-color: var(--color-brand-primary);
+  border-radius: var(--radius-full);
+}
+
+.person__text {
+  display: none;
+  flex-direction: column;
+}
+
+@media (min-width: 40rem) {
+  .person__text {
+    display: flex;
+  }
+}
+
+.person__name {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+}
+
+/* Caption: Roboto Regular 12/16 */
+.person__job {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--color-text-secondary);
+}
+
+/* Label/Medium: Roboto Medium 14/20 */
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  height: 2.5rem;
+  padding: 0 var(--space-lg);
+  font: inherit;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.button--secondary {
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-surface);
+  border: 1px solid var(--color-border-strong);
+}
+
+.button--secondary:hover {
+  background-color: var(--color-bg-muted);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+}
+
+.button__icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---------- Content ---------- */
+
+.hub {
+  max-width: var(--container-content);
+  margin: 0 auto;
+  padding: var(--space-2xl) var(--space-lg) var(--space-4xl);
+}
+
+.hub:focus {
+  outline: none;
+}
+
+@media (min-width: 40rem) {
+  .hub {
+    padding: var(--space-3xl) var(--space-2xl) var(--space-4xl);
+  }
+}
+
+/* Heading/H1: Roboto Bold 32/40 */
+.hub__greeting {
+  margin: 0;
+  font-size: 2rem;
+  line-height: 2.5rem;
+  font-weight: 700;
+}
+
+/* Body/Large: Roboto Regular 18/28 */
+.hub__lead {
+  margin: var(--space-sm) 0 0;
+  max-width: 40rem;
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+  color: var(--color-text-secondary);
+}
+
+.environment {
+  margin-top: var(--space-2xl);
+}
+
+/* Heading/H4: Roboto Medium 18/24 */
+.environment__title {
+  margin: 0 0 var(--space-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 1.125rem;
+  line-height: 1.5rem;
+  font-weight: 500;
+}
+
+/* Label/Small: Roboto Medium 12/16 */
+.environment__count {
+  min-width: 1.5rem;
+  padding: 0.125rem var(--space-sm);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 500;
+  text-align: center;
+  color: var(--color-status-neutral-text);
+  background-color: var(--color-bg-muted);
+  border-radius: var(--radius-full);
+}
+
+.cards {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: var(--space-lg);
+}
+
+.card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-xl);
+  color: inherit;
+  text-decoration: none;
+  background-color: var(--color-bg-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.card:hover {
+  border-color: var(--color-brand-primary);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+}
+
+.card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+/* Heading/H4: Roboto Bold 18/24, tracked for a mark */
+.card__monogram {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  font-size: 1.125rem;
+  line-height: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--color-brand-primary-hover);
+  background-color: var(--color-brand-primary-subtle);
+  border-radius: var(--radius-md);
+}
+
+/* Label/Small: Roboto Medium 12/16 */
+.badge {
+  padding: 0.125rem var(--space-sm);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 500;
+  border: 1px solid;
+  border-radius: var(--radius-full);
+  color: var(--color-status-neutral-text);
+  background-color: var(--color-bg-muted);
+  border-color: var(--color-border-default);
+}
+
+.badge--dev {
+  color: var(--color-status-warning-text);
+  background-color: var(--color-status-warning-subtle);
+  border-color: var(--color-status-warning);
+}
+
+.badge--qa {
+  color: var(--color-status-info-text);
+  background-color: var(--color-status-info-subtle);
+  border-color: var(--color-status-info);
+}
+
+/* Heading/H3: Roboto Medium 20/28 */
+.card__name {
+  margin-top: var(--space-lg);
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 500;
+}
+
+/* Body/Small: Roboto Regular 14/20 */
+.card__host {
+  margin-top: var(--space-xs);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+/* Label/Medium: Roboto Medium 14/20 */
+.card__action {
+  margin-top: auto;
+  padding-top: var(--space-xl);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  color: var(--color-text-link);
+}
+
+.card__arrow {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 150ms ease;
+}
+
+.card:hover .card__arrow {
+  transform: translateX(3px);
+}
+
+/* ---------- Empty state ---------- */
+
+.empty {
+  margin-top: var(--space-2xl);
+  padding: var(--space-3xl) var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background-color: var(--color-bg-surface);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+}
+
+.empty__icon {
+  display: grid;
+  place-items: center;
+  width: 4rem;
+  height: 4rem;
+  color: var(--color-brand-primary);
+  background-color: var(--color-brand-primary-subtle);
+  border-radius: var(--radius-full);
+}
+
+.empty__icon svg {
+  width: 1.75rem;
+  height: 1.75rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Heading/H3: Roboto Medium 20/28 */
+.empty__title {
+  margin: var(--space-lg) 0 0;
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 500;
+}
+
+/* Body/Medium: Roboto Regular 16/24 */
+.empty__text {
+  margin: var(--space-sm) 0 0;
+  max-width: 28rem;
+  font-size: 1rem;
+  line-height: 1.5rem;
+  color: var(--color-text-secondary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .card__arrow {
+    transition: none;
+  }
+
+  .card:hover,
+  .card:hover .card__arrow {
+    transform: none;
+  }
+}

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title th:text="#{login.page-title}">Sign in</title>
+    <link rel="stylesheet" th:href="@{/css/tokens.css}" />
+    <link rel="stylesheet" th:href="@{/css/login.css}" />
+  </head>
+  <body>
+    <main class="login">
+      <img class="login__logo" th:src="@{/images/depro-horizontal-color.svg}" width="275" height="72" alt="DEPRO" />
+      <h1 class="login__title" th:text="#{login.title}">Sign in</h1>
+      <p
+        class="login__subtitle"
+        th:text="${requestingApplication == null} ? #{login.subtitle} : (${requestingEnvironment == null} ? #{login.subtitle.client(${requestingApplication})} : #{login.subtitle.client-in-environment(${requestingApplication}, ${requestingEnvironment})})"
+      >
+        Use your institutional credentials.
+      </p>
+
+      <div th:if="${param.error}" id="login-error" class="alert alert--error" role="alert" th:text="#{login.error}">
+        Incorrect username or password.
+      </div>
+      <div th:if="${param.logout}" class="alert alert--info" role="status" th:text="#{login.logged-out}">
+        You have signed out.
+      </div>
+
+      <form class="login__form" method="post" th:action="${param.continue != null} ? @{/login?continue} : @{/login}" th:with="failed=${param.error != null}">
+        <div class="field">
+          <label class="field__label" for="username" th:text="#{login.username}">Username</label>
+          <input
+            class="field__input"
+            id="username"
+            name="username"
+            type="text"
+            autocomplete="username"
+            autocapitalize="none"
+            spellcheck="false"
+            required
+            autofocus
+            th:attr="aria-invalid=${failed}, aria-describedby=${failed ? 'login-error' : null}"
+          />
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="password" th:text="#{login.password}">Password</label>
+          <input
+            class="field__input"
+            id="password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            required
+            th:attr="aria-invalid=${failed}, aria-describedby=${failed ? 'login-error' : null}"
+          />
+        </div>
+
+        <button class="button" type="submit" th:text="#{login.submit}">Sign in</button>
+      </form>
+    </main>
+  </body>
+</html>

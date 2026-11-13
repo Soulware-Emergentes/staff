@@ -1,5 +1,6 @@
 package lat.soulware.staff.identityprovider.infrastructure.security.authorizationserver;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -39,6 +40,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 /**
  * Three ways in, checked in order: the OpenID Connect endpoints that log people in and issue service
  * tokens, the directory API services call with one of those tokens, and the login form itself.
@@ -46,9 +49,11 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @Configuration
 public class SecurityConfiguration {
 
+    private static final String AUTHORIZATION_ENDPOINT = "/oauth2/authorize";
+
     /**
      * The OpenID Connect provider endpoints. A browser that reaches the authorization endpoint without
-     * a session is sent to the login form, and a logged-in person is let into an application only when
+     * a session is sent to the login form, marked as continuing that request by {@link ContinuedLogin}, and a logged-in person is let into an application only when
      * {@link EligibilityValidator} finds a role for them there. Userinfo answers with the claims the ID
      * token carries.
      */
@@ -69,9 +74,12 @@ public class SecurityConfiguration {
                 ))
             )
             .cors(Customizer.withDefaults())
-            .authorizeHttpRequests(requests -> requests.anyRequest().authenticated())
+            .authorizeHttpRequests(requests -> requests
+                .requestMatchers(SecurityConfiguration::isSilentAuthorization).permitAll()
+                .anyRequest().authenticated()
+            )
             .exceptionHandling(exceptions -> exceptions.defaultAuthenticationEntryPointFor(
-                new LoginUrlAuthenticationEntryPoint("/login"),
+                new LoginUrlAuthenticationEntryPoint(ContinuedLogin.CONTINUED_LOGIN_PAGE),
                 browserRequests
             ))
             .oauth2ResourceServer(resourceServer -> resourceServer.jwt(Customizer.withDefaults()))
@@ -113,17 +121,26 @@ public class SecurityConfiguration {
     }
 
     /**
-     * The login form the authorization endpoint sends browsers to. The OpenAPI document and the
-     * Swagger UI over it fall to this chain too, and are served without a login when they are on.
+     * The login form the authorization endpoint sends browsers to, rendered from the {@code login}
+     * template along with the stylesheet, fonts and logo it loads. Where a login goes once the person
+     * is in, and back to on a failed attempt, is decided by {@link ContinuedLogin}. The OpenAPI document and the Swagger UI
+     * over it fall to this chain too, and are served without a login when they are on.
      */
     @Bean
     @Order(3)
     SecurityFilterChain loginSecurity(HttpSecurity http) throws Exception {
         return http.authorizeHttpRequests(requests -> requests
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                .requestMatchers("/css/**", "/fonts/**", "/images/**").permitAll()
+                // Whatever its query string says: plain, continued, or back after a failed attempt.
+                .requestMatchers(ContinuedLogin.LOGIN_PAGE).permitAll()
                 .anyRequest().authenticated()
             )
-            .formLogin(Customizer.withDefaults())
+            .formLogin(form -> form.loginPage(ContinuedLogin.LOGIN_PAGE)
+                .successHandler(ContinuedLogin.successHandler())
+                .failureHandler(ContinuedLogin.failureHandler())
+                .permitAll()
+            )
             .build();
     }
 
@@ -146,6 +163,20 @@ public class SecurityConfiguration {
         source.registerCorsConfiguration("/userinfo", cors);
         source.registerCorsConfiguration("/.well-known/**", cors);
         return source;
+    }
+
+    /**
+     * An authorization request asking staff to show nothing ({@code prompt=none}), which the endpoint
+     * itself answers: with a code when the browser has logged in, with {@code login_required} when it
+     * has not. Left to the chain, a browser that has not would be sent to the login form instead.
+     */
+    private static boolean isSilentAuthorization(HttpServletRequest request) {
+        String prompt = request.getParameter("prompt");
+        boolean asksForNothing = prompt != null && Arrays.asList(prompt.split(" ")).contains("none");
+
+        String path = request.getRequestURI().substring(request.getContextPath().length());
+
+        return AUTHORIZATION_ENDPOINT.equals(path) && asksForNothing;
     }
 
     /** Adds the eligibility check after Spring's own checks of the authorization request. */

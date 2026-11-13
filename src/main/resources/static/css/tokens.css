@@ -1,0 +1,120 @@
+/*
+ * The SGT design system tokens (light mode) and base styles staff's pages share. Only the tokens
+ * those pages use are declared.
+ */
+
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/roboto-latin-400-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../fonts/roboto-latin-500-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../fonts/roboto-latin-700-normal.woff2') format('woff2');
+}
+
+:root {
+  /* Primitives */
+  --color-teal-600: #0e6e66;
+  --color-teal-700: #0b5853;
+  --color-teal-800: #094541;
+  --color-sky-50: #eaf4fc;
+  --color-sky-600: #2f6ea5;
+  --color-sky-700: #265a88;
+  --color-sky-500: #3f88c5;
+  --color-teal-50: #e6f5f3;
+  --color-gray-100: #eceff3;
+  --color-gray-700: #3a4451;
+  --color-amber-50: #fff6da;
+  --color-amber-500: #e0a100;
+  --color-amber-700: #8a6100;
+  --color-gray-0: #ffffff;
+  --color-gray-50: #f5f7f9;
+  --color-gray-200: #dce1e8;
+  --color-gray-400: #9aa4b2;
+  --color-gray-500: #67727f;
+  --color-gray-600: #525d6c;
+  --color-gray-900: #151a21;
+  --color-red-50: #fdecec;
+  --color-red-600: #c03a3a;
+  --color-red-700: #a12a2a;
+
+  /* Semantic */
+  --color-brand-primary: var(--color-teal-600);
+  --color-brand-primary-hover: var(--color-teal-700);
+  --color-brand-primary-pressed: var(--color-teal-800);
+  --color-text-primary: var(--color-gray-900);
+  --color-text-secondary: var(--color-gray-600);
+  --color-text-placeholder: var(--color-gray-500);
+  --color-text-on-primary: var(--color-gray-0);
+  --color-bg-page: var(--color-gray-50);
+  --color-bg-surface: var(--color-gray-0);
+  --color-border-default: var(--color-gray-200);
+  --color-border-strong: var(--color-gray-400);
+  --color-border-focus: var(--color-sky-500);
+  --color-status-error: var(--color-red-600);
+  --color-status-error-subtle: var(--color-red-50);
+  --color-status-error-text: var(--color-red-700);
+  --color-status-info: var(--color-sky-600);
+  --color-status-info-subtle: var(--color-sky-50);
+  --color-status-info-text: var(--color-sky-700);
+  --color-status-warning: var(--color-amber-500);
+  --color-status-warning-subtle: var(--color-amber-50);
+  --color-status-warning-text: var(--color-amber-700);
+  --color-brand-primary-subtle: var(--color-teal-50);
+  --color-bg-muted: var(--color-gray-100);
+  --color-text-link: var(--color-teal-700);
+  --color-status-neutral-text: var(--color-gray-700);
+
+  /* Spacing */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 0.75rem;
+  --space-lg: 1rem;
+  --space-xl: 1.5rem;
+  --space-2xl: 2rem;
+  --space-3xl: 3rem;
+  --space-4xl: 4rem;
+
+  /* Radius */
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-full: 999px;
+
+  /* Shadow */
+  --shadow-sm: 0 1px 2px 0 #151a2114;
+  --shadow-md: 0 2px 4px 0 #151a210f, 0 6px 16px 0 #151a211a;
+
+  /* Layout */
+  --container-content: 75rem;
+
+  --font-sans: 'Roboto', ui-sans-serif, system-ui, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-sans);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-page);
+  -webkit-font-smoothing: antialiased;
+}
+
