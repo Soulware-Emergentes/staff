@@ -10,7 +10,7 @@
   <body th:with="grouped=${#lists.size(environments) > 1}">
     <a class="skip-link" href="#content" th:text="#{hub.skip-to-content}">Skip to content</a>
 
-    <header class="topbar">
+    <header class="topbar page-enter">
       <div class="topbar__inner">
         <img class="topbar__logo" th:src="@{/images/depro-horizontal-color.svg}" width="275" height="72" alt="DEPRO" />
 
@@ -34,7 +34,7 @@
       </div>
     </header>
 
-    <main id="content" class="hub" tabindex="-1">
+    <main id="content" class="hub page-enter" tabindex="-1">
       <div class="hub__intro">
         <h1 class="hub__greeting"
             th:text="${person != null} ? #{hub.greeting(${person.firstName()})} : #{hub.greeting-anonymous}">
@@ -55,10 +55,12 @@
             <path d="M17.5 14v7M14 17.5h7" />
           </svg>
         </span>
-        <h2 id="empty-title" class="empty__title" th:text="#{hub.empty.title}">No applications yet</h2>
-        <p class="empty__text" th:text="#{hub.empty.text}">
-          Your account is not assigned to any application. Ask your administrator for access.
-        </p>
+        <div class="empty__copy">
+          <h2 id="empty-title" class="empty__title" th:text="#{hub.empty.title}">No applications yet</h2>
+          <p class="empty__text" th:text="#{hub.empty.text}">
+            Your account is not assigned to any application. Ask your administrator for access.
+          </p>
+        </div>
       </section>
 
       <section th:each="environment : ${environments}" class="environment"
@@ -75,14 +77,18 @@
                th:attr="aria-label=${launchable.environmentName() == null}
                           ? #{hub.open(${launchable.name()})}
                           : #{hub.open-in-environment(${launchable.name()}, ${launchable.environmentName()})}">
-              <span class="card__top">
-                <span class="card__monogram" aria-hidden="true" th:text="${launchable.monogram()}">SGT</span>
-                <span th:if="${launchable.environmentName() != null}"
-                      class="badge" th:classappend="${'badge--' + launchable.environment()}"
-                      th:text="${launchable.environmentName()}">Development</span>
+              <span class="card__body">
+                <span class="card__top">
+                  <span class="card__monogram" aria-hidden="true" th:text="${launchable.monogram()}">SGT</span>
+                  <span th:if="${launchable.environmentName() != null}"
+                        class="badge" th:classappend="${'badge--' + launchable.environment()}"
+                        th:text="${launchable.environmentName()}">Development</span>
+                </span>
+                <span class="card__text">
+                  <span class="card__name" th:text="${launchable.name()}">SGT</span>
+                  <span class="card__host" th:text="${launchable.host()}">localhost:4200</span>
+                </span>
               </span>
-              <span class="card__name" th:text="${launchable.name()}">SGT</span>
-              <span class="card__host" th:text="${launchable.host()}">localhost:4200</span>
               <span class="card__action" aria-hidden="true">
                 <span th:text="#{hub.open-label}">Open</span>
                 <svg class="card__arrow" viewBox="0 0 24 24" focusable="false"><path d="M5 12h14M13 6l6 6-6 6" /></svg>

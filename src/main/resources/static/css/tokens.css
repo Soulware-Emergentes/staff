@@ -118,3 +118,23 @@ html {
   -webkit-font-smoothing: antialiased;
 }
 
+
+/*
+ * The fade staff's pages enter with, the same the applications' pages and loading splash use, so
+ * moving between an application and staff reads as one product.
+ */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .page-enter {
+    animation: page-enter 400ms ease-out both;
+  }
+
+  .page-enter--notice {
+    animation-duration: 700ms;
+  }
+}

@@ -148,6 +148,9 @@ body {
 /* ---------- Content ---------- */
 
 .hub {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xl);
   max-width: var(--container-content);
   margin: 0 auto;
   padding: var(--space-2xl) var(--space-lg) var(--space-4xl);
@@ -163,6 +166,12 @@ body {
   }
 }
 
+.hub__intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
 /* Heading/H1: Roboto Bold 32/40 */
 .hub__greeting {
   margin: 0;
@@ -173,7 +182,7 @@ body {
 
 /* Body/Large: Roboto Regular 18/28 */
 .hub__lead {
-  margin: var(--space-sm) 0 0;
+  margin: 0;
   max-width: 40rem;
   font-size: 1.125rem;
   line-height: 1.75rem;
@@ -181,12 +190,14 @@ body {
 }
 
 .environment {
-  margin-top: var(--space-2xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
 }
 
 /* Heading/H4: Roboto Medium 18/24 */
 .environment__title {
-  margin: 0 0 var(--space-lg);
+  margin: 0;
   display: flex;
   align-items: center;
   gap: var(--space-sm);
@@ -221,6 +232,8 @@ body {
   height: 100%;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-xl);
   padding: var(--space-xl);
   color: inherit;
   text-decoration: none;
@@ -240,6 +253,18 @@ body {
 .card:focus-visible {
   outline: 2px solid var(--color-border-focus);
   outline-offset: 2px;
+}
+
+.card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.card__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
 }
 
 .card__top {
@@ -291,7 +316,6 @@ body {
 
 /* Heading/H3: Roboto Medium 20/28 */
 .card__name {
-  margin-top: var(--space-lg);
   font-size: 1.25rem;
   line-height: 1.75rem;
   font-weight: 500;
@@ -299,7 +323,6 @@ body {
 
 /* Body/Small: Roboto Regular 14/20 */
 .card__host {
-  margin-top: var(--space-xs);
   font-size: 0.875rem;
   line-height: 1.25rem;
   color: var(--color-text-secondary);
@@ -308,9 +331,8 @@ body {
 
 /* Label/Medium: Roboto Medium 14/20 */
 .card__action {
-  margin-top: auto;
-  padding-top: var(--space-xl);
   display: inline-flex;
+  align-self: flex-start;
   align-items: center;
   gap: var(--space-xs);
   font-size: 0.875rem;
@@ -337,11 +359,11 @@ body {
 /* ---------- Empty state ---------- */
 
 .empty {
-  margin-top: var(--space-2xl);
   padding: var(--space-3xl) var(--space-xl);
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: var(--space-lg);
   text-align: center;
   background-color: var(--color-bg-surface);
   border: 1px dashed var(--color-border-strong);
@@ -368,9 +390,16 @@ body {
   stroke-linejoin: round;
 }
 
+.empty__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
 /* Heading/H3: Roboto Medium 20/28 */
 .empty__title {
-  margin: var(--space-lg) 0 0;
+  margin: 0;
   font-size: 1.25rem;
   line-height: 1.75rem;
   font-weight: 500;
@@ -378,7 +407,7 @@ body {
 
 /* Body/Medium: Roboto Regular 16/24 */
 .empty__text {
-  margin: var(--space-sm) 0 0;
+  margin: 0;
   max-width: 28rem;
   font-size: 1rem;
   line-height: 1.5rem;

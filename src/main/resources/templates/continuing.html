@@ -10,16 +10,18 @@
     <link rel="stylesheet" th:href="@{/css/login.css}" />
   </head>
   <body>
-    <main class="notice">
+    <main class="notice page-enter page-enter--notice">
       <div class="notice__body" role="status" aria-live="polite">
         <span class="notice__spinner" aria-hidden="true"></span>
-        <p
-          class="notice__title"
-          th:text="${requestingApplication == null} ? #{continuing.title} : (${requestingEnvironment == null} ? #{continuing.title.client(${requestingApplication})} : #{continuing.title.client-in-environment(${requestingApplication}, ${requestingEnvironment})})"
-        >
-          Redirecting to SGT (Development)
-        </p>
-        <p class="notice__description" th:text="#{continuing.description}">You are signed in. Your session continues there.</p>
+        <div class="notice__text">
+          <p
+            class="notice__title"
+            th:text="${requestingApplication == null} ? #{continuing.title} : (${requestingEnvironment == null} ? #{continuing.title.client(${requestingApplication})} : #{continuing.title.client-in-environment(${requestingApplication}, ${requestingEnvironment})})"
+          >
+            Redirecting to SGT (Development)
+          </p>
+          <p class="notice__description" th:text="#{continuing.description}">You are signed in. Your session continues there.</p>
+        </div>
       </div>
     </main>
   </body>

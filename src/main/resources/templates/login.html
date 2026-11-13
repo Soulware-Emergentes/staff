@@ -8,15 +8,18 @@
     <link rel="stylesheet" th:href="@{/css/login.css}" />
   </head>
   <body>
-    <main class="login">
+    <!-- A failed attempt shows its error at once instead of fading in again. -->
+    <main class="login" th:classappend="${param.error == null} ? 'page-enter'">
       <img class="login__logo" th:src="@{/images/depro-horizontal-color.svg}" width="275" height="72" alt="DEPRO" />
-      <h1 class="login__title" th:text="#{login.title}">Sign in</h1>
-      <p
-        class="login__subtitle"
-        th:text="${requestingApplication == null} ? #{login.subtitle} : (${requestingEnvironment == null} ? #{login.subtitle.client(${requestingApplication})} : #{login.subtitle.client-in-environment(${requestingApplication}, ${requestingEnvironment})})"
-      >
-        Use your institutional credentials.
-      </p>
+      <header class="login__header">
+        <h1 class="login__title" th:text="#{login.title}">Sign in</h1>
+        <p
+          class="login__subtitle"
+          th:text="${requestingApplication == null} ? #{login.subtitle} : (${requestingEnvironment == null} ? #{login.subtitle.client(${requestingApplication})} : #{login.subtitle.client-in-environment(${requestingApplication}, ${requestingEnvironment})})"
+        >
+          Use your institutional credentials.
+        </p>
+      </header>
 
       <div th:if="${param.error}" id="login-error" class="alert alert--error" role="alert" th:text="#{login.error}">
         Incorrect username or password.
@@ -26,33 +29,35 @@
       </div>
 
       <form class="login__form" method="post" th:action="${param.continue != null} ? @{/login?continue} : @{/login}" th:with="failed=${param.error != null}">
-        <div class="field">
-          <label class="field__label" for="username" th:text="#{login.username}">Username</label>
-          <input
-            class="field__input"
-            id="username"
-            name="username"
-            type="text"
-            autocomplete="username"
-            autocapitalize="none"
-            spellcheck="false"
-            required
-            autofocus
-            th:attr="aria-invalid=${failed}, aria-describedby=${failed ? 'login-error' : null}"
-          />
-        </div>
+        <div class="login__fields">
+          <div class="field">
+            <label class="field__label" for="username" th:text="#{login.username}">Username</label>
+            <input
+              class="field__input"
+              id="username"
+              name="username"
+              type="text"
+              autocomplete="username"
+              autocapitalize="none"
+              spellcheck="false"
+              required
+              autofocus
+              th:attr="aria-invalid=${failed}, aria-describedby=${failed ? 'login-error' : null}"
+            />
+          </div>
 
-        <div class="field">
-          <label class="field__label" for="password" th:text="#{login.password}">Password</label>
-          <input
-            class="field__input"
-            id="password"
-            name="password"
-            type="password"
-            autocomplete="current-password"
-            required
-            th:attr="aria-invalid=${failed}, aria-describedby=${failed ? 'login-error' : null}"
-          />
+          <div class="field">
+            <label class="field__label" for="password" th:text="#{login.password}">Password</label>
+            <input
+              class="field__input"
+              id="password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              required
+              th:attr="aria-invalid=${failed}, aria-describedby=${failed ? 'login-error' : null}"
+            />
+          </div>
         </div>
 
         <button class="button" type="submit" th:text="#{login.submit}">Sign in</button>
