@@ -45,7 +45,7 @@ public abstract class PostgresIntegrationTest {
     // The identity provider reads these. Every seeded person logs in with DEV_PASSWORD, and the
     // seeded service client authenticates with SERVICE_CLIENT_SECRET.
     protected static final String ISSUER = "http://staff.test";
-    protected static final String REDIRECT_URI = "http://localhost:5173/callback";
+    protected static final String REDIRECT_URI = "http://localhost:4200/callback";
     protected static final String DEV_PASSWORD = "staff-dev-password";
     protected static final String SERVICE_CLIENT_ID = "sgt-service-dev";
     protected static final String SERVICE_CLIENT_SECRET = "sgt-service-dev-secret";
@@ -160,7 +160,7 @@ public abstract class PostgresIntegrationTest {
         registry.add("staff.directory.audience", () -> "staff-directory-api-dev");
         registry.add("staff.oidc.issuer", () -> ISSUER);
         registry.add("STAFF_ENVIRONMENT", () -> "dev");
-        registry.add("staff.oidc.web.origins", () -> "http://localhost:5173,http://localhost:5174");
+        registry.add("staff.oidc.web.origins", () -> "http://localhost:4200,http://localhost:4201");
         registry.add("staff.oidc.signing.private-key-path", () -> SIGNING_KEYS.get(0).toString());
         registry.add("staff.oidc.signing.public-key-path", () -> SIGNING_KEYS.get(1).toString());
     }

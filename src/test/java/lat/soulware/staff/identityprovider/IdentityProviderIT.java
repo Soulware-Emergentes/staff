@@ -1,14 +1,20 @@
 package lat.soulware.staff.identityprovider;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
@@ -24,6 +30,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.util.HtmlUtils;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import tools.jackson.databind.JsonNode;
@@ -40,7 +47,7 @@ import lat.soulware.staff.support.PostgresIntegrationTest;
 class IdentityProviderIT extends PostgresIntegrationTest {
 
     private static final String CLIENT_ID = "sgt-web-dev";
-    private static final String POI_REDIRECT_URI = "http://localhost:5174/callback";
+    private static final String POI_REDIRECT_URI = "http://localhost:4201/callback";
     private static final String API = "sgt-api-dev";
     private static final String FIELD_AGENT = "mcortes";
     private static final String FIELD_AGENT_ID = "13ae9db8-212f-466b-89ae-23e418ded4ac";
@@ -64,6 +71,57 @@ class IdentityProviderIT extends PostgresIntegrationTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.issuer").value(ISSUER))
             .andExpect(jsonPath("$.jwks_uri").value(ISSUER + "/oauth2/jwks"));
+    }
+
+    @Test
+    void aBrowserWithoutASessionLogsInAndContinuesTheLogin() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+
+        this.mockMvc.perform(get("/oauth2/authorize")
+                .accept(MediaType.TEXT_HTML)
+                .queryParam("response_type", "code")
+                .queryParam("client_id", CLIENT_ID)
+                .queryParam("scope", "openid " + API)
+                .queryParam("redirect_uri", REDIRECT_URI)
+                .queryParam("state", "state")
+                .queryParam("code_challenge", codeChallenge())
+                .queryParam("code_challenge_method", "S256")
+                .session(session)
+            )
+            .andExpect(redirectedUrl("/login?continue"));
+        this.mockMvc.perform(get("/login?continue").session(session))
+            .andExpect(status().isOk())
+            .andExpect(content().string(containsString("Sign in to continue to SGT (Development).")));
+
+        this.mockMvc.perform(post("/login?continue")
+                .param("username", FIELD_AGENT)
+                .param("password", DEV_PASSWORD)
+                .with(csrf())
+                .session(session)
+            )
+            .andExpect(redirectedUrl("/continuing?continue"));
+        String notice = this.mockMvc.perform(get("/continuing?continue").session(session))
+            .andExpect(status().isOk())
+            .andExpect(content().string(containsString("Redirecting to SGT (Development)")))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+        String continueTo = HtmlUtils.htmlUnescape(notice.replaceFirst("(?s).*content=\"2;url=([^\"]+)\".*", "$1"));
+        assertThat(continueTo).startsWith("http://localhost/oauth2/authorize?");
+        String redirect = this.mockMvc.perform(get(URI.create(continueTo)).session(session))
+            .andReturn()
+            .getResponse()
+            .getRedirectedUrl();
+        assertThat(redirect).startsWith(REDIRECT_URI + "?code=");
+    }
+
+    @Test
+    void theContinuingPageWithNothingToContinueOpensTheHub() throws Exception {
+        MockHttpSession session = this.logIn(FIELD_AGENT);
+
+        this.mockMvc.perform(get("/continuing?continue").session(session))
+            .andExpect(redirectedUrl("/"));
     }
 
     @Test
@@ -168,6 +226,126 @@ class IdentityProviderIT extends PostgresIntegrationTest {
     }
 
     @Test
+    void aLoginOpenedByHandIgnoresTheOneAnApplicationLeftAbandoned() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        this.mockMvc.perform(get("/oauth2/authorize")
+                .accept(MediaType.TEXT_HTML)
+                .queryParam("response_type", "code")
+                .queryParam("client_id", CLIENT_ID)
+                .queryParam("scope", "openid " + API)
+                .queryParam("redirect_uri", REDIRECT_URI)
+                .queryParam("state", "state")
+                .queryParam("code_challenge", codeChallenge())
+                .queryParam("code_challenge_method", "S256")
+                .session(session)
+            )
+            .andExpect(redirectedUrl("/login?continue"));
+
+        this.mockMvc.perform(get("/login").session(session))
+            .andExpect(content().string(allOf(
+                containsString("Use your institutional credentials."),
+                not(containsString("SGT"))
+            )));
+        this.mockMvc.perform(post("/login")
+                .param("username", FIELD_AGENT)
+                .param("password", DEV_PASSWORD)
+                .with(csrf())
+                .session(session)
+            )
+            .andExpect(redirectedUrl("/"));
+    }
+
+    @Test
+    void theLoginFormSendsABrowserAlreadyLoggedInToTheHub() throws Exception {
+        MockHttpSession session = this.logIn(FIELD_AGENT);
+
+        this.mockMvc.perform(get("/login").session(session))
+            .andExpect(redirectedUrl("/"));
+        this.mockMvc.perform(get("/login?continue").session(session))
+            .andExpect(redirectedUrl("/"));
+    }
+
+    @Test
+    void theLoginFormSendsABrowserAlreadyLoggedInOnToTheApplicationItContinues() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        this.mockMvc.perform(get("/oauth2/authorize")
+                .accept(MediaType.TEXT_HTML)
+                .queryParam("response_type", "code")
+                .queryParam("client_id", CLIENT_ID)
+                .queryParam("scope", "openid " + API)
+                .queryParam("redirect_uri", REDIRECT_URI)
+                .queryParam("state", "state")
+                .queryParam("code_challenge", codeChallenge())
+                .queryParam("code_challenge_method", "S256")
+                .session(session)
+            )
+            .andExpect(redirectedUrl("/login?continue"));
+        this.mockMvc.perform(post("/login?continue")
+                .param("username", FIELD_AGENT)
+                .param("password", DEV_PASSWORD)
+                .with(csrf())
+                .session(session)
+            )
+            .andExpect(redirectedUrl("/continuing?continue"));
+
+        this.mockMvc.perform(get("/login?continue").session(session))
+            .andExpect(redirectedUrl("/continuing?continue"));
+    }
+
+    @Test
+    void aSilentLoginWithoutASessionComesBackAskingForOne() throws Exception {
+        String redirect = this.silentlyAuthorize(new MockHttpSession());
+
+        assertThat(redirect).startsWith(REDIRECT_URI + "?");
+        assertThat(errorOf(redirect)).isEqualTo("login_required");
+    }
+
+    @Test
+    void aSilentLoginWithASessionComesBackWithACode() throws Exception {
+        String redirect = this.silentlyAuthorize(this.logIn(FIELD_AGENT));
+
+        assertThat(parametersOf(redirect).getFirst("code")).isNotNull();
+    }
+
+    @Test
+    void aFailedContinuedLoginKeepsContinuing() throws Exception {
+        this.mockMvc.perform(post("/login?continue")
+                .param("username", FIELD_AGENT)
+                .param("password", "wrong")
+                .with(csrf())
+            )
+            .andExpect(redirectedUrl("/login?error&continue"));
+    }
+
+    @Test
+    void theLoginFormLeavesProductionUnnamed() throws Exception {
+        this.jdbc.update("UPDATE client_registrations SET environment = 'prod' WHERE client_id = ?", "poi-web-dev");
+        MockHttpSession session = new MockHttpSession();
+
+        this.mockMvc.perform(get("/oauth2/authorize")
+                .accept(MediaType.TEXT_HTML)
+                .queryParam("response_type", "code")
+                .queryParam("client_id", "poi-web-dev")
+                .queryParam("scope", "openid poi-api-dev")
+                .queryParam("redirect_uri", POI_REDIRECT_URI)
+                .queryParam("state", "state")
+                .queryParam("code_challenge", codeChallenge())
+                .queryParam("code_challenge_method", "S256")
+                .session(session)
+            )
+            .andExpect(redirectedUrl("/login?continue"));
+        this.mockMvc.perform(get("/login?continue").session(session))
+            .andExpect(content().string(containsString("Sign in to continue to POI.")));
+    }
+
+    @Test
+    void theLoginFormOpenedDirectlyNamesNoApplication() throws Exception {
+        this.mockMvc.perform(get("/login"))
+            .andExpect(status().isOk())
+            .andExpect(content().string(containsString("Use your institutional credentials.")));
+    }
+
+    @Test
     void theLoginFormChecksThePasswordAgainstTheDirectory() throws Exception {
         this.mockMvc.perform(formLogin().user(FIELD_AGENT).password(DEV_PASSWORD))
             .andExpect(redirectedUrl("/"));
@@ -181,6 +359,104 @@ class IdentityProviderIT extends PostgresIntegrationTest {
 
         this.mockMvc.perform(formLogin().user("lcaicedo").password(DEV_PASSWORD))
             .andExpect(redirectedUrl("/login?error"));
+    }
+
+    @Test
+    void aLoginNoApplicationAskedForLandsOnTheHubListingWhatThePersonCanOpen() throws Exception {
+        MockHttpSession session = this.logIn(DEVELOPER);
+
+        this.mockMvc.perform(get("/").session(session))
+            .andExpect(status().isOk())
+            .andExpect(content().string(allOf(
+                containsString("Hello, Dev"),
+                containsString("Dev User"),
+                containsString("href=\"/opening?client=sgt-web-dev\""),
+                containsString("href=\"/opening?client=poi-web-dev\""),
+                containsString("Development")
+            )));
+    }
+
+    @Test
+    void theHubLeavesOutApplicationsThePersonHoldsNoRoleOn() throws Exception {
+        MockHttpSession session = this.logIn(FIELD_AGENT);
+
+        this.mockMvc.perform(get("/").session(session))
+            .andExpect(status().isOk())
+            .andExpect(content().string(allOf(
+                containsString("href=\"/opening?client=sgt-web-dev\""),
+                not(containsString("poi-web-dev"))
+            )));
+    }
+
+    @Test
+    void aHubCardOpensItsApplicationThroughTheRedirectNotice() throws Exception {
+        MockHttpSession session = this.logIn(FIELD_AGENT);
+
+        this.mockMvc.perform(get("/opening").queryParam("client", CLIENT_ID).session(session))
+            .andExpect(status().isOk())
+            .andExpect(content().string(allOf(
+                containsString("Redirecting to SGT (Development)"),
+                containsString("content=\"2;url=http://localhost:4200/\"")
+            )));
+    }
+
+    @Test
+    void aHubCardForAnApplicationThePersonCannotOpenGoesBackToTheHub() throws Exception {
+        MockHttpSession session = this.logIn(FIELD_AGENT);
+
+        this.mockMvc.perform(get("/opening").queryParam("client", "poi-web-dev").session(session))
+            .andExpect(redirectedUrl("/"));
+        this.mockMvc.perform(get("/opening").queryParam("client", "sgt-service-dev").session(session))
+            .andExpect(redirectedUrl("/"));
+    }
+
+    @Test
+    void theHubTellsAPersonWithNoRoleAnywhereSo() throws Exception {
+        this.jdbc.update("""
+            INSERT INTO people (id, username, display_name, job_title, department, password_hash)
+            SELECT '9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c01', 'nogroups', 'No Groups', 'Visitor', 'Nowhere', password_hash
+            FROM people WHERE username = ?""", FIELD_AGENT);
+        MockHttpSession session = this.logIn("nogroups");
+
+        this.mockMvc.perform(get("/").session(session))
+            .andExpect(status().isOk())
+            .andExpect(content().string(containsString("No applications yet")));
+    }
+
+    @Test
+    void theHubAsksABrowserWithoutASessionToLogIn() throws Exception {
+        this.mockMvc.perform(get("/").accept(MediaType.TEXT_HTML))
+            .andExpect(redirectedUrl("/login"));
+    }
+
+    @Test
+    void signingOutOfTheHubEndsTheSession() throws Exception {
+        MockHttpSession session = this.logIn(FIELD_AGENT);
+
+        this.mockMvc.perform(post("/logout").with(csrf()).session(session))
+            .andExpect(redirectedUrl("/login?logout"));
+        this.mockMvc.perform(get("/").accept(MediaType.TEXT_HTML).session(session))
+            .andExpect(redirectedUrl("/login"));
+    }
+
+    /** @return where staff sends the browser back to for an authorization request asking it to show nothing */
+    private String silentlyAuthorize(MockHttpSession session) throws Exception {
+        return this.mockMvc.perform(get("/oauth2/authorize")
+                .accept(MediaType.TEXT_HTML)
+                .queryParam("response_type", "code")
+                .queryParam("client_id", CLIENT_ID)
+                .queryParam("scope", "openid " + API)
+                .queryParam("redirect_uri", REDIRECT_URI)
+                .queryParam("state", "state")
+                .queryParam("code_challenge", codeChallenge())
+                .queryParam("code_challenge_method", "S256")
+                .queryParam("prompt", "none")
+                .session(session)
+            )
+            .andExpect(status().is3xxRedirection())
+            .andReturn()
+            .getResponse()
+            .getRedirectedUrl();
     }
 
     private MockHttpSession logIn(String username) throws Exception {

@@ -10,22 +10,30 @@ import org.springframework.stereotype.Component;
 
 import lat.soulware.staff.identityprovider.application.queries.clients.criteria.ClientByClientId;
 import lat.soulware.staff.identityprovider.application.queries.clients.criteria.ClientById;
+import lat.soulware.staff.identityprovider.application.queries.clients.criteria.ClientsOfGroups;
 import lat.soulware.staff.identityprovider.application.queries.clients.projections.ClientProjection;
 import lat.soulware.staff.identityprovider.application.queries.clients.results.ClientResult;
+import lat.soulware.staff.identityprovider.application.queries.clients.results.LaunchableClientResult;
 
 /** Reads a client registration with its redirect URIs, the APIs it may call, and what it may ask for there. */
 @Component
 public class JdbcClientProjection implements ClientProjection {
 
     private static final String FIND_BY_CLIENT_ID = """
-        SELECT id, client_id, kind, secret_hash
-        FROM client_registrations
-        WHERE client_id = :key""";
+        SELECT c.id, c.client_id, a.name AS application_name, c.environment, e.name AS environment_name,
+               c.kind, c.secret_hash
+        FROM client_registrations c
+        JOIN applications a ON a.id = c.application_id
+        JOIN environments e ON e.code = c.environment
+        WHERE c.client_id = :key""";
 
     private static final String FIND_BY_ID = """
-        SELECT id, client_id, kind, secret_hash
-        FROM client_registrations
-        WHERE id = :key""";
+        SELECT c.id, c.client_id, a.name AS application_name, c.environment, e.name AS environment_name,
+               c.kind, c.secret_hash
+        FROM client_registrations c
+        JOIN applications a ON a.id = c.application_id
+        JOIN environments e ON e.code = c.environment
+        WHERE c.id = :key""";
 
     private static final String FIND_REDIRECT_URIS = """
         SELECT uri
@@ -54,6 +62,18 @@ public class JdbcClientProjection implements ClientProjection {
         WHERE g.client_registration_id = :id
         ORDER BY s.value""";
 
+    private static final String FIND_LAUNCHABLE = """
+        SELECT DISTINCT c.client_id, a.name AS application_name, c.environment, e.name AS environment_name,
+               c.home_uri
+        FROM client_registrations c
+        JOIN applications a ON a.id = c.application_id
+        JOIN environments e ON e.code = c.environment
+        JOIN client_resources cr ON cr.client_registration_id = c.id
+        JOIN api_roles ar ON ar.resource_id = cr.resource_id
+        JOIN role_assignments ra ON ra.role_id = ar.id
+        WHERE c.kind = 'PUBLIC' AND ra.group_id IN (:groupIds)
+        ORDER BY environment_name, application_name, c.client_id""";
+
     private final NamedParameterJdbcTemplate jdbc;
 
     public JdbcClientProjection(NamedParameterJdbcTemplate jdbc) {
@@ -70,12 +90,31 @@ public class JdbcClientProjection implements ClientProjection {
         return this.find(FIND_BY_ID, criteria.id());
     }
 
+    @Override
+    public List<LaunchableClientResult> findLaunchable(ClientsOfGroups criteria) {
+        if (criteria.groupIds().isEmpty()) {
+            return List.of();
+        }
+        MapSqlParameterSource parameters = new MapSqlParameterSource("groupIds", criteria.groupIds());
+
+        return this.jdbc.query(FIND_LAUNCHABLE, parameters, (row, rowNumber) -> new LaunchableClientResult(
+            row.getString("client_id"),
+            row.getString("application_name"),
+            row.getString("environment"),
+            row.getString("environment_name"),
+            row.getString("home_uri")
+        ));
+    }
+
     private Optional<ClientResult> find(String query, Object key) {
         MapSqlParameterSource parameters = new MapSqlParameterSource("key", key);
 
         return this.jdbc.query(query, parameters, (row, rowNumber) -> new Registration(
                 row.getObject("id", UUID.class),
                 row.getString("client_id"),
+                row.getString("application_name"),
+                row.getString("environment"),
+                row.getString("environment_name"),
                 row.getString("kind"),
                 row.getString("secret_hash")
             ))
@@ -90,6 +129,9 @@ public class JdbcClientProjection implements ClientProjection {
         return new ClientResult(
             registration.id(),
             registration.clientId(),
+            registration.applicationName(),
+            registration.environment(),
+            registration.environmentName(),
             registration.kind(),
             registration.secretHash(),
             this.redirectUris(registration.id(), "LOGIN"),
@@ -108,6 +150,14 @@ public class JdbcClientProjection implements ClientProjection {
         return this.jdbc.queryForList(FIND_REDIRECT_URIS, parameters, String.class);
     }
 
-    private record Registration(UUID id, String clientId, String kind, String secretHash) {
+    private record Registration(
+        UUID id,
+        String clientId,
+        String applicationName,
+        String environment,
+        String environmentName,
+        String kind,
+        String secretHash
+    ) {
     }
 }

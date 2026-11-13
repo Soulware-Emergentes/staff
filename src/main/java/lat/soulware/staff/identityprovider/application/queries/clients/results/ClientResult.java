@@ -10,6 +10,9 @@ import lat.soulware.staff.shared.application.queries.results.QueryResult;
  *
  * @param id                 the registration's identity
  * @param clientId           the application's public name
+ * @param applicationName    the name people know its system by, such as SGT
+ * @param environment        the code of the environment it is deployed to, such as {@code dev}
+ * @param environmentName    that environment's name, such as Development
  * @param kind               {@code PUBLIC} or {@code CONFIDENTIAL}
  * @param secretHash         the BCrypt hash of its secret, null for a public client
  * @param loginRedirectUris  where a login may return to
@@ -21,6 +24,9 @@ import lat.soulware.staff.shared.application.queries.results.QueryResult;
 public record ClientResult(
     UUID id,
     String clientId,
+    String applicationName,
+    String environment,
+    String environmentName,
     String kind,
     String secretHash,
     List<String> loginRedirectUris,

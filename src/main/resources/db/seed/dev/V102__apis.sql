@@ -1,9 +1,16 @@
 -- The dev APIs tokens are issued for, the roles each defines for people, and
 -- the scopes each defines for services calling it on their own behalf.
-INSERT INTO api_resources (id, identifier, name) VALUES
-    ('b2e1f7d3-4c8e-4d2f-9ba3-1e5a6c7d8f01', 'sgt-api-dev', 'sgt, dev'),
-    ('b2e1f7d3-4c8e-4d2f-9ba3-1e5a6c7d8f02', 'poi-api-dev', 'poi, dev'),
-    ('b2e1f7d3-4c8e-4d2f-9ba3-1e5a6c7d8f03', 'staff-directory-api-dev', 'staff directory, dev');
+-- The systems, whatever their environment.
+INSERT INTO applications (id, name) VALUES
+    ('a1d0e6c2-3b7d-4c1e-8a92-0d4b5c6e7f01', 'SGT'),
+    ('a1d0e6c2-3b7d-4c1e-8a92-0d4b5c6e7f02', 'POI'),
+    ('a1d0e6c2-3b7d-4c1e-8a92-0d4b5c6e7f03', 'Staff directory'),
+    ('a1d0e6c2-3b7d-4c1e-8a92-0d4b5c6e7f04', 'Beneficiarios');
+
+INSERT INTO api_resources (id, identifier, application_id, environment) VALUES
+    ('b2e1f7d3-4c8e-4d2f-9ba3-1e5a6c7d8f01', 'sgt-api-dev', 'a1d0e6c2-3b7d-4c1e-8a92-0d4b5c6e7f01', 'dev'),
+    ('b2e1f7d3-4c8e-4d2f-9ba3-1e5a6c7d8f02', 'poi-api-dev', 'a1d0e6c2-3b7d-4c1e-8a92-0d4b5c6e7f02', 'dev'),
+    ('b2e1f7d3-4c8e-4d2f-9ba3-1e5a6c7d8f03', 'staff-directory-api-dev', 'a1d0e6c2-3b7d-4c1e-8a92-0d4b5c6e7f03', 'dev');
 
 INSERT INTO api_roles (id, resource_id, value, description) VALUES
     ('c3f2a8e4-5d9f-4e3a-8cb4-2f6b7d8e9a01', 'b2e1f7d3-4c8e-4d2f-9ba3-1e5a6c7d8f01', 'field-agent', 'Submits field sheets'),
