@@ -177,6 +177,25 @@ class IdentityProviderIT extends PostgresIntegrationTest {
     }
 
     @Test
+    void sgtsFrontendGetsAFieldAgentASecondTokenForTheBeneficiaryRegistry() throws Exception {
+        MockHttpSession session = this.logIn(FIELD_AGENT);
+        this.accessToken(this.authorize(session, "openid " + API));
+
+        Jwt lookingUp = this.accessToken(this.authorize(session, "beneficiarios-api-dev"));
+
+        assertThat(lookingUp.getAudience()).containsExactly("beneficiarios-api-dev");
+        assertThat(lookingUp.getClaimAsString("token_use")).isEqualTo("user");
+        assertThat(lookingUp.getClaimAsStringList("roles")).containsExactly("field-agent");
+    }
+
+    @Test
+    void aPersonWithNoRoleOnTheBeneficiaryRegistryGetsNoTokenForIt() throws Exception {
+        MockHttpSession session = this.logIn("dvalencia");
+
+        assertThat(errorOf(this.authorize(session, "beneficiarios-api-dev"))).isEqualTo("access_denied");
+    }
+
+    @Test
     void aRoleThePersonDoesNotHoldIsRefused() throws Exception {
         MockHttpSession session = this.logIn(FIELD_AGENT);
 
