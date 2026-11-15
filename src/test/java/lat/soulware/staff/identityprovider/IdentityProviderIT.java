@@ -39,14 +39,17 @@ import tools.jackson.databind.json.JsonMapper;
 import lat.soulware.staff.support.PostgresIntegrationTest;
 
 /**
- * Drives staff the way a frontend does: discovery, a login with PKCE for one API, acting as one role
- * at a time, and the refusals when the person holds no role there.
+ * Drives staff the way its clients do: discovery, a login with PKCE for one API, acting as one role
+ * at a time, renewing a login, and the refusals when the person holds no role there. sgt's BFF is a
+ * confidential client that logs people in; poi's frontend is a public one.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 class IdentityProviderIT extends PostgresIntegrationTest {
 
-    private static final String CLIENT_ID = "sgt-web-dev";
+    private static final String CLIENT_ID = "sgt-bff-dev";
+    private static final String CLIENT_SECRET = "sgt-bff-dev-secret";
+    private static final String LOGOUT_REDIRECT_URI = "http://localhost:4200/";
     private static final String POI_REDIRECT_URI = "http://localhost:4201/callback";
     private static final String API = "sgt-api-dev";
     private static final String FIELD_AGENT = "mcortes";
@@ -114,6 +117,41 @@ class IdentityProviderIT extends PostgresIntegrationTest {
             .getResponse()
             .getRedirectedUrl();
         assertThat(redirect).startsWith(REDIRECT_URI + "?code=");
+    }
+
+    @Test
+    void whatTheBrowserAsksForWhileOnTheLoginFormDoesNotReplaceTheLoginItContinues() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+
+        this.mockMvc.perform(get("/oauth2/authorize")
+                .accept(MediaType.TEXT_HTML)
+                .queryParam("response_type", "code")
+                .queryParam("client_id", CLIENT_ID)
+                .queryParam("scope", "openid " + API)
+                .queryParam("redirect_uri", REDIRECT_URI)
+                .queryParam("state", "state")
+                .queryParam("code_challenge", codeChallenge())
+                .queryParam("code_challenge_method", "S256")
+                .session(session)
+            )
+            .andExpect(redirectedUrl("/login?continue"));
+        // As Chrome asks every page it opens with DevTools open.
+        this.mockMvc.perform(get("/.well-known/appspecific/com.chrome.devtools.json").session(session));
+
+        this.mockMvc.perform(post("/login?continue")
+                .param("username", FIELD_AGENT)
+                .param("password", DEV_PASSWORD)
+                .with(csrf())
+                .session(session)
+            )
+            .andExpect(redirectedUrl("/continuing?continue"));
+        String notice = this.mockMvc.perform(get("/continuing?continue").session(session))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+        String continueTo = HtmlUtils.htmlUnescape(notice.replaceFirst("(?s).*content=\"2;url=([^\"]+)\".*", "$1"));
+        assertThat(continueTo).startsWith("http://localhost/oauth2/authorize?");
     }
 
     @Test
@@ -242,6 +280,59 @@ class IdentityProviderIT extends PostgresIntegrationTest {
         assertThat(token.getClaimAsString("token_use")).isEqualTo("service");
         assertThat(token.getClaimAsString("scope")).isEqualTo("tasks.read tasks.write");
         assertThat(token.getClaims()).doesNotContainKey("roles");
+    }
+
+    @Test
+    void aConfidentialClientThatLogsPeopleInRenewsTheirLoginWithoutThem() throws Exception {
+        MockHttpSession session = this.logIn(FIELD_AGENT);
+        JsonNode login = this.tokensFor(this.authorize(session, "openid profile " + API + " act-as:field-agent"));
+        Jwt loggedIn = this.jwtDecoder.decode(login.get("id_token").asString());
+        assertThat(login.get("refresh_token")).isNotNull();
+
+        String body = this.mockMvc.perform(post("/oauth2/token")
+                .with(httpBasic(CLIENT_ID, CLIENT_SECRET))
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .param("grant_type", "refresh_token")
+                .param("refresh_token", login.get("refresh_token").asString())
+            )
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+        JsonNode renewed = this.json.readTree(body);
+
+        Jwt accessToken = this.jwtDecoder.decode(renewed.get("access_token").asString());
+        assertThat(accessToken.getSubject()).isEqualTo(FIELD_AGENT_ID);
+        assertThat(accessToken.getAudience()).containsExactly(API);
+        assertThat(accessToken.getClaimAsString("token_use")).isEqualTo("user");
+        assertThat(accessToken.getClaimAsStringList("roles")).containsExactly("field-agent");
+        assertThat(renewed.get("refresh_token").asString()).isEqualTo(login.get("refresh_token").asString());
+
+        Jwt idToken = this.jwtDecoder.decode(renewed.get("id_token").asString());
+        assertThat(idToken.getClaimAsInstant("auth_time")).isEqualTo(loggedIn.getClaimAsInstant("auth_time"));
+    }
+
+    @Test
+    void aPublicClientGetsNoRefreshToken() throws Exception {
+        MockHttpSession session = this.logIn(DEVELOPER);
+
+        String redirect = this.authorize(session, "poi-web-dev", POI_REDIRECT_URI, "openid poi-api-dev act-as:planner");
+        JsonNode tokens = this.tokensFor("poi-web-dev", POI_REDIRECT_URI, redirect);
+
+        assertThat(tokens.get("access_token")).isNotNull();
+        assertThat(tokens.get("refresh_token")).isNull();
+    }
+
+    @Test
+    void aClientThatLogsPeopleInCannotGetATokenForItself() throws Exception {
+        this.mockMvc.perform(post("/oauth2/token")
+                .with(httpBasic(CLIENT_ID, CLIENT_SECRET))
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .param("grant_type", "client_credentials")
+                .param("scope", API)
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error").value("unauthorized_client"));
     }
 
     @Test
@@ -389,7 +480,7 @@ class IdentityProviderIT extends PostgresIntegrationTest {
             .andExpect(content().string(allOf(
                 containsString("Hello, Dev"),
                 containsString("Dev User"),
-                containsString("href=\"/opening?client=sgt-web-dev\""),
+                containsString("href=\"/opening?client=sgt-bff-dev\""),
                 containsString("href=\"/opening?client=poi-web-dev\""),
                 containsString("Development")
             )));
@@ -402,7 +493,7 @@ class IdentityProviderIT extends PostgresIntegrationTest {
         this.mockMvc.perform(get("/").session(session))
             .andExpect(status().isOk())
             .andExpect(content().string(allOf(
-                containsString("href=\"/opening?client=sgt-web-dev\""),
+                containsString("href=\"/opening?client=sgt-bff-dev\""),
                 not(containsString("poi-web-dev"))
             )));
     }
@@ -456,6 +547,90 @@ class IdentityProviderIT extends PostgresIntegrationTest {
             .andExpect(redirectedUrl("/login?logout"));
         this.mockMvc.perform(get("/").accept(MediaType.TEXT_HTML).session(session))
             .andExpect(redirectedUrl("/login"));
+    }
+
+    @Test
+    void anApplicationSigningOutWithItsIdTokenEndsTheSessionAtOnce() throws Exception {
+        MockHttpSession session = this.logIn(FIELD_AGENT);
+        String idToken = this.tokensFor(this.authorize(session, "openid profile " + API)).get("id_token").asString();
+
+        this.mockMvc.perform(get("/connect/logout")
+                .queryParam("id_token_hint", idToken)
+                .queryParam("post_logout_redirect_uri", LOGOUT_REDIRECT_URI)
+                .session(session)
+            )
+            .andExpect(redirectedUrl(LOGOUT_REDIRECT_URI));
+        this.mockMvc.perform(get("/").accept(MediaType.TEXT_HTML).session(session))
+            .andExpect(redirectedUrl("/login"));
+    }
+
+    @Test
+    void anApplicationSigningOutByNameHasThePersonConfirm() throws Exception {
+        MockHttpSession session = this.logIn(FIELD_AGENT);
+
+        String confirmation = this.mockMvc.perform(get("/connect/logout")
+                .queryParam("client_id", CLIENT_ID)
+                .queryParam("post_logout_redirect_uri", LOGOUT_REDIRECT_URI)
+                .queryParam("state", "state")
+                .session(session)
+            )
+            .andExpect(status().is3xxRedirection())
+            .andReturn()
+            .getResponse()
+            .getRedirectedUrl();
+
+        assertThat(confirmation).startsWith("/signing-out?");
+        this.mockMvc.perform(get(URI.create(confirmation)).session(session))
+            .andExpect(status().isOk())
+            .andExpect(content().string(allOf(
+                containsString("You signed out of SGT (Development)"),
+                containsString("value=\"" + LOGOUT_REDIRECT_URI + "\"")
+            )));
+
+        this.mockMvc.perform(post("/logout").with(csrf()).session(session)
+                .param("client_id", CLIENT_ID)
+                .param("post_logout_redirect_uri", LOGOUT_REDIRECT_URI)
+                .param("state", "state")
+            )
+            .andExpect(redirectedUrl(LOGOUT_REDIRECT_URI + "?state=state"));
+        this.mockMvc.perform(get("/").accept(MediaType.TEXT_HTML).session(session))
+            .andExpect(redirectedUrl("/login"));
+    }
+
+    @Test
+    void aBrowserNotSignedInHasNoSignOutToConfirm() throws Exception {
+        this.mockMvc.perform(get("/signing-out")
+                .queryParam("client_id", CLIENT_ID)
+                .queryParam("post_logout_redirect_uri", LOGOUT_REDIRECT_URI)
+            )
+            .andExpect(redirectedUrl(LOGOUT_REDIRECT_URI));
+    }
+
+    @Test
+    void aSignOutNamingNoApplicationIsRefused() throws Exception {
+        this.mockMvc.perform(get("/connect/logout").session(this.logIn(FIELD_AGENT)))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void aSignOutReturningWhereTheApplicationRegisteredNothingIsRefused() throws Exception {
+        this.mockMvc.perform(get("/connect/logout")
+                .queryParam("client_id", CLIENT_ID)
+                .queryParam("post_logout_redirect_uri", "https://elsewhere.example/")
+                .session(this.logIn(FIELD_AGENT))
+            )
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void aConfirmedSignOutReturningWhereTheApplicationRegisteredNothingEndsOnTheLoginForm() throws Exception {
+        MockHttpSession session = this.logIn(FIELD_AGENT);
+
+        this.mockMvc.perform(post("/logout").with(csrf()).session(session)
+                .param("client_id", CLIENT_ID)
+                .param("post_logout_redirect_uri", "https://elsewhere.example/")
+            )
+            .andExpect(redirectedUrl("/login?logout"));
     }
 
     /** @return where staff sends the browser back to for an authorization request asking it to show nothing */
@@ -520,11 +695,13 @@ class IdentityProviderIT extends PostgresIntegrationTest {
         return this.tokensFor(CLIENT_ID, REDIRECT_URI, redirect);
     }
 
+    /** Exchanges the code as the client would: sgt's BFF with its secret, poi's frontend with none. */
     private JsonNode tokensFor(String clientId, String redirectUri, String redirect) throws Exception {
         String code = parametersOf(redirect).getFirst("code");
         assertThat(code).as("code in %s", redirect).isNotNull();
 
         String body = this.mockMvc.perform(post("/oauth2/token")
+                .with(request -> CLIENT_ID.equals(clientId) ? httpBasic(CLIENT_ID, CLIENT_SECRET).postProcessRequest(request) : request)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .param("grant_type", "authorization_code")
                 .param("code", code)

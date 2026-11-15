@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title th:text="#{signing-out.page-title}">Sign out</title>
+    <link rel="stylesheet" th:href="@{/css/tokens.css}" />
+    <link rel="stylesheet" th:href="@{/css/login.css}" />
+  </head>
+  <body>
+    <main class="login page-enter">
+      <img class="login__logo" th:src="@{/images/depro-horizontal-color.svg}" width="275" height="72" alt="DEPRO" />
+      <header class="login__header">
+        <h1 class="login__title" th:text="#{signing-out.title}">Sign out?</h1>
+        <p
+          class="login__subtitle"
+          th:text="${requestingApplication == null} ? #{signing-out.subtitle} : (${requestingEnvironment == null} ? #{signing-out.subtitle.client(${requestingApplication})} : #{signing-out.subtitle.client-in-environment(${requestingApplication}, ${requestingEnvironment})})"
+        >
+          You signed out of SGT (Development). Sign out of your institutional account too?
+        </p>
+      </header>
+
+      <form class="login__form" method="post" th:action="@{/logout}">
+        <input th:if="${logoutClientId != null}" type="hidden" name="client_id" th:value="${logoutClientId}" />
+        <input th:if="${postLogoutRedirectUri != null}" type="hidden" name="post_logout_redirect_uri" th:value="${postLogoutRedirectUri}" />
+        <input th:if="${logoutState != null}" type="hidden" name="state" th:value="${logoutState}" />
+
+        <div class="login__actions">
+          <button class="button" type="submit" th:text="#{signing-out.submit}">Sign out</button>
+          <a class="button button--secondary" th:href="@{/}" th:text="#{signing-out.stay}">Stay signed in</a>
+        </div>
+      </form>
+    </main>
+  </body>
+</html>

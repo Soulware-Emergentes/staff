@@ -27,7 +27,7 @@ public interface ClientProjection extends Projection {
 
     /**
      * @param criteria the groups
-     * @return the public clients of the APIs any of the groups holds a role on, by environment name and
+     * @return the clients that log people into the APIs any of the groups holds a role on, by environment name and
      *     then application name, empty when none
      */
     List<LaunchableClientResult> findLaunchable(ClientsOfGroups criteria);
