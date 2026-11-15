@@ -14,6 +14,10 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * <p>Also serves, from the {@code continuing} template, the page a continued login passes through on
  * its way back to that application, which names it the same way and goes on to it through
  * {@link ContinuationInterceptor}.
+ *
+ * <p>And, from the {@code signing-out} template, the page where a person confirms a sign-out an
+ * application asked for without an ID token, filled by {@link SigningOutInterceptor}. Its form is
+ * sent to Spring Security's {@code /logout}, as the hub's is.
  */
 @Configuration
 public class LoginPageConfiguration implements WebMvcConfigurer {
@@ -23,21 +27,25 @@ public class LoginPageConfiguration implements WebMvcConfigurer {
     private final SignedInLoginInterceptor signedIn;
     private final RequestingApplicationInterceptor requestingApplication;
     private final ContinuationInterceptor continuation;
+    private final SigningOutInterceptor signingOut;
 
     public LoginPageConfiguration(
         SignedInLoginInterceptor signedIn,
         RequestingApplicationInterceptor requestingApplication,
-        ContinuationInterceptor continuation
+        ContinuationInterceptor continuation,
+        SigningOutInterceptor signingOut
     ) {
         this.signedIn = signedIn;
         this.requestingApplication = requestingApplication;
         this.continuation = continuation;
+        this.signingOut = signingOut;
     }
 
     @Override
     public void addViewControllers(ViewControllerRegistry registry) {
         registry.addViewController(LOGIN_PAGE).setViewName("login");
         registry.addViewController(ContinuedLogin.CONTINUING_PAGE).setViewName("continuing");
+        registry.addViewController(SigningOutInterceptor.SIGNING_OUT_PAGE).setViewName("signing-out");
     }
 
     @Override
@@ -45,5 +53,6 @@ public class LoginPageConfiguration implements WebMvcConfigurer {
         registry.addInterceptor(this.signedIn).addPathPatterns(LOGIN_PAGE);
         registry.addInterceptor(this.continuation).addPathPatterns(ContinuedLogin.CONTINUING_PAGE);
         registry.addInterceptor(this.requestingApplication).addPathPatterns(LOGIN_PAGE, ContinuedLogin.CONTINUING_PAGE);
+        registry.addInterceptor(this.signingOut).addPathPatterns(SigningOutInterceptor.SIGNING_OUT_PAGE);
     }
 }

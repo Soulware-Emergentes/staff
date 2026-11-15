@@ -49,6 +49,7 @@ class IdentityProviderIT extends PostgresIntegrationTest {
 
     private static final String CLIENT_ID = "sgt-bff-dev";
     private static final String CLIENT_SECRET = "sgt-bff-dev-secret";
+    private static final String LOGOUT_REDIRECT_URI = "http://localhost:4200/";
     private static final String POI_REDIRECT_URI = "http://localhost:4201/callback";
     private static final String API = "sgt-api-dev";
     private static final String FIELD_AGENT = "mcortes";
@@ -511,6 +512,90 @@ class IdentityProviderIT extends PostgresIntegrationTest {
             .andExpect(redirectedUrl("/login?logout"));
         this.mockMvc.perform(get("/").accept(MediaType.TEXT_HTML).session(session))
             .andExpect(redirectedUrl("/login"));
+    }
+
+    @Test
+    void anApplicationSigningOutWithItsIdTokenEndsTheSessionAtOnce() throws Exception {
+        MockHttpSession session = this.logIn(FIELD_AGENT);
+        String idToken = this.tokensFor(this.authorize(session, "openid profile " + API)).get("id_token").asString();
+
+        this.mockMvc.perform(get("/connect/logout")
+                .queryParam("id_token_hint", idToken)
+                .queryParam("post_logout_redirect_uri", LOGOUT_REDIRECT_URI)
+                .session(session)
+            )
+            .andExpect(redirectedUrl(LOGOUT_REDIRECT_URI));
+        this.mockMvc.perform(get("/").accept(MediaType.TEXT_HTML).session(session))
+            .andExpect(redirectedUrl("/login"));
+    }
+
+    @Test
+    void anApplicationSigningOutByNameHasThePersonConfirm() throws Exception {
+        MockHttpSession session = this.logIn(FIELD_AGENT);
+
+        String confirmation = this.mockMvc.perform(get("/connect/logout")
+                .queryParam("client_id", CLIENT_ID)
+                .queryParam("post_logout_redirect_uri", LOGOUT_REDIRECT_URI)
+                .queryParam("state", "state")
+                .session(session)
+            )
+            .andExpect(status().is3xxRedirection())
+            .andReturn()
+            .getResponse()
+            .getRedirectedUrl();
+
+        assertThat(confirmation).startsWith("/signing-out?");
+        this.mockMvc.perform(get(URI.create(confirmation)).session(session))
+            .andExpect(status().isOk())
+            .andExpect(content().string(allOf(
+                containsString("You signed out of SGT (Development)"),
+                containsString("value=\"" + LOGOUT_REDIRECT_URI + "\"")
+            )));
+
+        this.mockMvc.perform(post("/logout").with(csrf()).session(session)
+                .param("client_id", CLIENT_ID)
+                .param("post_logout_redirect_uri", LOGOUT_REDIRECT_URI)
+                .param("state", "state")
+            )
+            .andExpect(redirectedUrl(LOGOUT_REDIRECT_URI + "?state=state"));
+        this.mockMvc.perform(get("/").accept(MediaType.TEXT_HTML).session(session))
+            .andExpect(redirectedUrl("/login"));
+    }
+
+    @Test
+    void aBrowserNotSignedInHasNoSignOutToConfirm() throws Exception {
+        this.mockMvc.perform(get("/signing-out")
+                .queryParam("client_id", CLIENT_ID)
+                .queryParam("post_logout_redirect_uri", LOGOUT_REDIRECT_URI)
+            )
+            .andExpect(redirectedUrl(LOGOUT_REDIRECT_URI));
+    }
+
+    @Test
+    void aSignOutNamingNoApplicationIsRefused() throws Exception {
+        this.mockMvc.perform(get("/connect/logout").session(this.logIn(FIELD_AGENT)))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void aSignOutReturningWhereTheApplicationRegisteredNothingIsRefused() throws Exception {
+        this.mockMvc.perform(get("/connect/logout")
+                .queryParam("client_id", CLIENT_ID)
+                .queryParam("post_logout_redirect_uri", "https://elsewhere.example/")
+                .session(this.logIn(FIELD_AGENT))
+            )
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void aConfirmedSignOutReturningWhereTheApplicationRegisteredNothingEndsOnTheLoginForm() throws Exception {
+        MockHttpSession session = this.logIn(FIELD_AGENT);
+
+        this.mockMvc.perform(post("/logout").with(csrf()).session(session)
+                .param("client_id", CLIENT_ID)
+                .param("post_logout_redirect_uri", "https://elsewhere.example/")
+            )
+            .andExpect(redirectedUrl("/login?logout"));
     }
 
     /** @return where staff sends the browser back to for an authorization request asking it to show nothing */

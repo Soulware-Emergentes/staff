@@ -56,18 +56,24 @@ public class RequestingApplicationInterceptor implements HandlerInterceptor {
             return;
         }
 
-        this.requestingClient(request, response).ifPresent(client -> {
-            modelAndView.addObject(APPLICATION_ATTRIBUTE, client.applicationName());
-            if (PRODUCTION.equals(client.environment())) {
-                return;
-            }
-            modelAndView.addObject(ENVIRONMENT_ATTRIBUTE, this.messageSource.getMessage(
-                ENVIRONMENT_MESSAGE_PREFIX + client.environment(),
-                null,
-                client.environmentName(),
-                RequestContextUtils.getLocale(request)
-            ));
-        });
+        this.requestingClient(request, response).ifPresent(client -> this.name(client, request, modelAndView));
+    }
+
+    /**
+     * Names an application on a page the way the login page does: by its name and, outside
+     * production, the environment it runs in.
+     */
+    void name(ClientResult client, HttpServletRequest request, ModelAndView modelAndView) {
+        modelAndView.addObject(APPLICATION_ATTRIBUTE, client.applicationName());
+        if (PRODUCTION.equals(client.environment())) {
+            return;
+        }
+        modelAndView.addObject(ENVIRONMENT_ATTRIBUTE, this.messageSource.getMessage(
+            ENVIRONMENT_MESSAGE_PREFIX + client.environment(),
+            null,
+            client.environmentName(),
+            RequestContextUtils.getLocale(request)
+        ));
     }
 
     private Optional<ClientResult> requestingClient(HttpServletRequest request, HttpServletResponse response) {

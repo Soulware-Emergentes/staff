@@ -55,12 +55,15 @@ public class SecurityConfiguration {
      * The OpenID Connect provider endpoints. A browser that reaches the authorization endpoint without
      * a session is sent to the login form, marked as continuing that request by {@link ContinuedLogin}, and a logged-in person is let into an application only when
      * {@link EligibilityValidator} finds a role for them there. Userinfo answers with the claims the ID
-     * token carries.
+     * token carries. A logout without an ID token is confirmed by the person, through {@link UnhintedLogout}.
      */
     @Bean
     @Order(1)
-    SecurityFilterChain authorizationServerSecurity(HttpSecurity http, EligibilityValidator eligibility)
-        throws Exception {
+    SecurityFilterChain authorizationServerSecurity(
+        HttpSecurity http,
+        EligibilityValidator eligibility,
+        PostLogoutRedirect postLogoutRedirect
+    ) throws Exception {
         OAuth2AuthorizationServerConfigurer authorizationServer = new OAuth2AuthorizationServerConfigurer();
         MediaTypeRequestMatcher browserRequests = new MediaTypeRequestMatcher(MediaType.TEXT_HTML);
 
@@ -69,9 +72,16 @@ public class SecurityConfiguration {
                 .authorizationEndpoint(endpoint -> endpoint.authenticationProviders(
                     providers -> checkEligibility(providers, eligibility)
                 ))
-                .oidc(oidc -> oidc.userInfoEndpoint(
-                    userInfo -> userInfo.userInfoMapper(SecurityConfiguration::userInfoFromIdToken)
-                ))
+                .oidc(oidc -> oidc
+                    .userInfoEndpoint(
+                        userInfo -> userInfo.userInfoMapper(SecurityConfiguration::userInfoFromIdToken)
+                    )
+                    .logoutEndpoint(logout -> logout
+                        .logoutRequestConverter(UnhintedLogout.converter())
+                        .authenticationProvider(UnhintedLogout.provider(postLogoutRedirect))
+                        .logoutResponseHandler(UnhintedLogout.responseHandler())
+                    )
+                )
             )
             .cors(Customizer.withDefaults())
             .authorizeHttpRequests(requests -> requests
@@ -124,16 +134,19 @@ public class SecurityConfiguration {
      * The login form the authorization endpoint sends browsers to, rendered from the {@code login}
      * template along with the stylesheet, fonts and logo it loads. Where a login goes once the person
      * is in, and back to on a failed attempt, is decided by {@link ContinuedLogin}. The OpenAPI document and the Swagger UI
-     * over it fall to this chain too, and are served without a login when they are on.
+     * over it fall to this chain too, and are served without a login when they are on. Signing out
+     * returns where {@link PostLogoutRedirect} allows, the login form otherwise.
      */
     @Bean
     @Order(3)
-    SecurityFilterChain loginSecurity(HttpSecurity http) throws Exception {
+    SecurityFilterChain loginSecurity(HttpSecurity http, PostLogoutRedirect postLogoutRedirect) throws Exception {
         return http.authorizeHttpRequests(requests -> requests
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/css/**", "/fonts/**", "/images/**").permitAll()
                 // Whatever its query string says: plain, continued, or back after a failed attempt.
                 .requestMatchers(ContinuedLogin.LOGIN_PAGE).permitAll()
+                // A browser that is not signed in is sent straight back from it.
+                .requestMatchers(SigningOutInterceptor.SIGNING_OUT_PAGE).permitAll()
                 .anyRequest().authenticated()
             )
             .formLogin(form -> form.loginPage(ContinuedLogin.LOGIN_PAGE)
@@ -141,6 +154,7 @@ public class SecurityConfiguration {
                 .failureHandler(ContinuedLogin.failureHandler())
                 .permitAll()
             )
+            .logout(logout -> logout.logoutSuccessHandler(postLogoutRedirect))
             .build();
     }
 
