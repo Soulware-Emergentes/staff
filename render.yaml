@@ -1,0 +1,54 @@
+databases:
+  - name: staff-dev-db
+    databaseName: staff
+    user: staff
+    plan: basic-256mb
+    region: oregon
+
+services:
+  - type: web
+    name: staff-dev
+    runtime: docker
+    plan: free
+    region: oregon
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: dev
+      - key: STAFF_ENVIRONMENT
+        value: dev
+      - key: PGHOST
+        fromDatabase: { name: staff-dev-db, property: host }
+      - key: PGPORT
+        fromDatabase: { name: staff-dev-db, property: port }
+      - key: PGDATABASE
+        fromDatabase: { name: staff-dev-db, property: database }
+      - key: FLYWAY_URL
+        value: jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}
+      - key: FLYWAY_USERNAME
+        fromDatabase: { name: staff-dev-db, property: user }
+      - key: FLYWAY_PASSWORD
+        fromDatabase: { name: staff-dev-db, property: password }
+      - key: DB_URL
+        value: jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}
+      - key: DB_USERNAME
+        fromDatabase: { name: staff-dev-db, property: user }
+      - key: DB_PASSWORD
+        fromDatabase: { name: staff-dev-db, property: password }
+      - key: SERVER_PORT
+        value: "10000"
+      - key: STAFF_DIRECTORY_AUDIENCE
+        value: staff-directory-api-dev
+      # Spring resolves it from the variable Render sets on the service.
+      - key: STAFF_ISSUER
+        value: ${RENDER_EXTERNAL_URL}
+      - key: STAFF_WEB_ORIGINS
+        value: http://localhost:4201
+      - key: STAFF_SESSION_MAX
+        value: 9h
+      # Secret files uploaded in the dashboard, mounted under /etc/secrets.
+      - key: STAFF_SIGNING_PRIVATE_KEY_PATH
+        value: /etc/secrets/signing-private.pem
+      - key: STAFF_SIGNING_PUBLIC_KEY_PATH
+        value: /etc/secrets/signing-public.pem
+      - key: API_DOCS_ENABLED
+        value: "true"
