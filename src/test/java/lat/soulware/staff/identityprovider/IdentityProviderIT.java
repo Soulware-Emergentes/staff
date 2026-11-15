@@ -39,14 +39,16 @@ import tools.jackson.databind.json.JsonMapper;
 import lat.soulware.staff.support.PostgresIntegrationTest;
 
 /**
- * Drives staff the way a frontend does: discovery, a login with PKCE for one API, acting as one role
- * at a time, and the refusals when the person holds no role there.
+ * Drives staff the way its clients do: discovery, a login with PKCE for one API, acting as one role
+ * at a time, renewing a login, and the refusals when the person holds no role there. sgt's BFF is a
+ * confidential client that logs people in; poi's frontend is a public one.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 class IdentityProviderIT extends PostgresIntegrationTest {
 
-    private static final String CLIENT_ID = "sgt-web-dev";
+    private static final String CLIENT_ID = "sgt-bff-dev";
+    private static final String CLIENT_SECRET = "sgt-bff-dev-secret";
     private static final String POI_REDIRECT_URI = "http://localhost:4201/callback";
     private static final String API = "sgt-api-dev";
     private static final String FIELD_AGENT = "mcortes";
@@ -245,6 +247,59 @@ class IdentityProviderIT extends PostgresIntegrationTest {
     }
 
     @Test
+    void aConfidentialClientThatLogsPeopleInRenewsTheirLoginWithoutThem() throws Exception {
+        MockHttpSession session = this.logIn(FIELD_AGENT);
+        JsonNode login = this.tokensFor(this.authorize(session, "openid profile " + API + " act-as:field-agent"));
+        Jwt loggedIn = this.jwtDecoder.decode(login.get("id_token").asString());
+        assertThat(login.get("refresh_token")).isNotNull();
+
+        String body = this.mockMvc.perform(post("/oauth2/token")
+                .with(httpBasic(CLIENT_ID, CLIENT_SECRET))
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .param("grant_type", "refresh_token")
+                .param("refresh_token", login.get("refresh_token").asString())
+            )
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+        JsonNode renewed = this.json.readTree(body);
+
+        Jwt accessToken = this.jwtDecoder.decode(renewed.get("access_token").asString());
+        assertThat(accessToken.getSubject()).isEqualTo(FIELD_AGENT_ID);
+        assertThat(accessToken.getAudience()).containsExactly(API);
+        assertThat(accessToken.getClaimAsString("token_use")).isEqualTo("user");
+        assertThat(accessToken.getClaimAsStringList("roles")).containsExactly("field-agent");
+        assertThat(renewed.get("refresh_token").asString()).isEqualTo(login.get("refresh_token").asString());
+
+        Jwt idToken = this.jwtDecoder.decode(renewed.get("id_token").asString());
+        assertThat(idToken.getClaimAsInstant("auth_time")).isEqualTo(loggedIn.getClaimAsInstant("auth_time"));
+    }
+
+    @Test
+    void aPublicClientGetsNoRefreshToken() throws Exception {
+        MockHttpSession session = this.logIn(DEVELOPER);
+
+        String redirect = this.authorize(session, "poi-web-dev", POI_REDIRECT_URI, "openid poi-api-dev act-as:planner");
+        JsonNode tokens = this.tokensFor("poi-web-dev", POI_REDIRECT_URI, redirect);
+
+        assertThat(tokens.get("access_token")).isNotNull();
+        assertThat(tokens.get("refresh_token")).isNull();
+    }
+
+    @Test
+    void aClientThatLogsPeopleInCannotGetATokenForItself() throws Exception {
+        this.mockMvc.perform(post("/oauth2/token")
+                .with(httpBasic(CLIENT_ID, CLIENT_SECRET))
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .param("grant_type", "client_credentials")
+                .param("scope", API)
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error").value("unauthorized_client"));
+    }
+
+    @Test
     void aLoginOpenedByHandIgnoresTheOneAnApplicationLeftAbandoned() throws Exception {
         MockHttpSession session = new MockHttpSession();
         this.mockMvc.perform(get("/oauth2/authorize")
@@ -389,7 +444,7 @@ class IdentityProviderIT extends PostgresIntegrationTest {
             .andExpect(content().string(allOf(
                 containsString("Hello, Dev"),
                 containsString("Dev User"),
-                containsString("href=\"/opening?client=sgt-web-dev\""),
+                containsString("href=\"/opening?client=sgt-bff-dev\""),
                 containsString("href=\"/opening?client=poi-web-dev\""),
                 containsString("Development")
             )));
@@ -402,7 +457,7 @@ class IdentityProviderIT extends PostgresIntegrationTest {
         this.mockMvc.perform(get("/").session(session))
             .andExpect(status().isOk())
             .andExpect(content().string(allOf(
-                containsString("href=\"/opening?client=sgt-web-dev\""),
+                containsString("href=\"/opening?client=sgt-bff-dev\""),
                 not(containsString("poi-web-dev"))
             )));
     }
@@ -520,11 +575,13 @@ class IdentityProviderIT extends PostgresIntegrationTest {
         return this.tokensFor(CLIENT_ID, REDIRECT_URI, redirect);
     }
 
+    /** Exchanges the code as the client would: sgt's BFF with its secret, poi's frontend with none. */
     private JsonNode tokensFor(String clientId, String redirectUri, String redirect) throws Exception {
         String code = parametersOf(redirect).getFirst("code");
         assertThat(code).as("code in %s", redirect).isNotNull();
 
         String body = this.mockMvc.perform(post("/oauth2/token")
+                .with(request -> CLIENT_ID.equals(clientId) ? httpBasic(CLIENT_ID, CLIENT_SECRET).postProcessRequest(request) : request)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .param("grant_type", "authorization_code")
                 .param("code", code)

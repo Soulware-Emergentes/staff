@@ -31,7 +31,7 @@ import lat.soulware.staff.identityprovider.application.queries.clients.results.L
 
 /**
  * Fills the hub for the logged-in person: who they are, as the directory describes them, and the
- * applications they can open, which are the public clients of the APIs their groups hold a role on. A
+ * applications they can open, which are the clients that log people into the APIs their groups hold a role on. A
  * deployment the person holds no role on is left out, since its login would refuse them.
  *
  * <p>Applications are grouped by environment, production first since it is the one people use for
@@ -190,7 +190,7 @@ public class HubInterceptor implements HandlerInterceptor {
     /**
      * An application the person can open.
      *
-     * @param clientId        the public client it opens as
+     * @param clientId        the client it opens as
      * @param name            the name people know its system by
      * @param monogram        the letters its tile shows
      * @param homeUri         where it opens

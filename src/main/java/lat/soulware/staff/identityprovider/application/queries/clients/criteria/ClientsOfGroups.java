@@ -6,7 +6,7 @@ import java.util.UUID;
 import lat.soulware.staff.shared.application.queries.criteria.QueryCriteria;
 
 /**
- * The applications a set of groups can be logged into: the public clients of the APIs any of them
+ * The applications a set of groups can be logged into: the clients that log people into the APIs any of them
  * holds a role on.
  *
  * @param groupIds the objectGUIDs of the groups, as the directory names them

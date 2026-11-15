@@ -58,9 +58,10 @@ CREATE TABLE api_scopes (
 );
 
 -- A registered application: one of a system's frontends or backends in one
--- environment. A public client logs people in with PKCE, and its home URI is
--- where the portal opens it; a confidential one holds a secret and gets tokens
--- for itself.
+-- environment. Its kind says whether it can keep a secret, as OAuth defines
+-- client types: a confidential client holds one, a public client cannot. How it
+-- gets tokens is a separate matter, held in client_grant_types. One that logs
+-- people in has a home URI, where the hub opens it.
 CREATE TABLE client_registrations (
     id UUID PRIMARY KEY,
     client_id VARCHAR(255) NOT NULL UNIQUE,
@@ -69,8 +70,16 @@ CREATE TABLE client_registrations (
     kind VARCHAR(20) NOT NULL CHECK (kind IN ('PUBLIC', 'CONFIDENTIAL')),
     secret_hash VARCHAR(255),
     home_uri VARCHAR(1000),
-    CHECK ((kind = 'CONFIDENTIAL') = (secret_hash IS NOT NULL)),
-    CHECK ((kind = 'PUBLIC') = (home_uri IS NOT NULL))
+    CHECK ((kind = 'CONFIDENTIAL') = (secret_hash IS NOT NULL))
+);
+
+-- How a client gets tokens. AUTHORIZATION_CODE logs people in; REFRESH_TOKEN
+-- renews their tokens; CLIENT_CREDENTIALS gets tokens for the client itself.
+-- Which combinations a public client may hold is the domain's rule.
+CREATE TABLE client_grant_types (
+    client_registration_id UUID NOT NULL REFERENCES client_registrations (id) ON DELETE CASCADE,
+    grant_type VARCHAR(30) NOT NULL CHECK (grant_type IN ('AUTHORIZATION_CODE', 'REFRESH_TOKEN', 'CLIENT_CREDENTIALS')),
+    PRIMARY KEY (client_registration_id, grant_type)
 );
 
 -- Where a login or a logout may send the browser back to.

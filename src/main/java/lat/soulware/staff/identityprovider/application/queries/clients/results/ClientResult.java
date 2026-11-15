@@ -15,6 +15,8 @@ import lat.soulware.staff.shared.application.queries.results.QueryResult;
  * @param environmentName    that environment's name, such as Development
  * @param kind               {@code PUBLIC} or {@code CONFIDENTIAL}
  * @param secretHash         the BCrypt hash of its secret, null for a public client
+ * @param grantTypes         how it gets tokens: {@code AUTHORIZATION_CODE}, {@code REFRESH_TOKEN},
+ *                           {@code CLIENT_CREDENTIALS}
  * @param loginRedirectUris  where a login may return to
  * @param logoutRedirectUris where a logout may return to
  * @param resources          the identifiers of the APIs it may get tokens for
@@ -29,6 +31,7 @@ public record ClientResult(
     String environmentName,
     String kind,
     String secretHash,
+    List<String> grantTypes,
     List<String> loginRedirectUris,
     List<String> logoutRedirectUris,
     List<String> resources,
@@ -37,6 +40,7 @@ public record ClientResult(
 ) implements QueryResult {
 
     public ClientResult {
+        grantTypes = List.copyOf(grantTypes);
         loginRedirectUris = List.copyOf(loginRedirectUris);
         logoutRedirectUris = List.copyOf(logoutRedirectUris);
         resources = List.copyOf(resources);

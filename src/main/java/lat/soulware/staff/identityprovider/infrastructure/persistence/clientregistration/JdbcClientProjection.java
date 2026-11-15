@@ -15,7 +15,10 @@ import lat.soulware.staff.identityprovider.application.queries.clients.projectio
 import lat.soulware.staff.identityprovider.application.queries.clients.results.ClientResult;
 import lat.soulware.staff.identityprovider.application.queries.clients.results.LaunchableClientResult;
 
-/** Reads a client registration with its redirect URIs, the APIs it may call, and what it may ask for there. */
+/**
+ * Reads a client registration with how it gets tokens, its redirect URIs, the APIs it may call, and
+ * what it may ask for there.
+ */
 @Component
 public class JdbcClientProjection implements ClientProjection {
 
@@ -34,6 +37,12 @@ public class JdbcClientProjection implements ClientProjection {
         JOIN applications a ON a.id = c.application_id
         JOIN environments e ON e.code = c.environment
         WHERE c.id = :key""";
+
+    private static final String FIND_GRANT_TYPES = """
+        SELECT grant_type
+        FROM client_grant_types
+        WHERE client_registration_id = :id
+        ORDER BY grant_type""";
 
     private static final String FIND_REDIRECT_URIS = """
         SELECT uri
@@ -71,7 +80,8 @@ public class JdbcClientProjection implements ClientProjection {
         JOIN client_resources cr ON cr.client_registration_id = c.id
         JOIN api_roles ar ON ar.resource_id = cr.resource_id
         JOIN role_assignments ra ON ra.role_id = ar.id
-        WHERE c.kind = 'PUBLIC' AND ra.group_id IN (:groupIds)
+        JOIN client_grant_types g ON g.client_registration_id = c.id AND g.grant_type = 'AUTHORIZATION_CODE'
+        WHERE c.home_uri IS NOT NULL AND ra.group_id IN (:groupIds)
         ORDER BY environment_name, application_name, c.client_id""";
 
     private final NamedParameterJdbcTemplate jdbc;
@@ -134,6 +144,7 @@ public class JdbcClientProjection implements ClientProjection {
             registration.environmentName(),
             registration.kind(),
             registration.secretHash(),
+            this.jdbc.queryForList(FIND_GRANT_TYPES, byId, String.class),
             this.redirectUris(registration.id(), "LOGIN"),
             this.redirectUris(registration.id(), "LOGOUT"),
             this.jdbc.queryForList(FIND_RESOURCES, byId, String.class),
