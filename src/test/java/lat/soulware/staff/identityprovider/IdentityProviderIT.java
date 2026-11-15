@@ -120,6 +120,41 @@ class IdentityProviderIT extends PostgresIntegrationTest {
     }
 
     @Test
+    void whatTheBrowserAsksForWhileOnTheLoginFormDoesNotReplaceTheLoginItContinues() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+
+        this.mockMvc.perform(get("/oauth2/authorize")
+                .accept(MediaType.TEXT_HTML)
+                .queryParam("response_type", "code")
+                .queryParam("client_id", CLIENT_ID)
+                .queryParam("scope", "openid " + API)
+                .queryParam("redirect_uri", REDIRECT_URI)
+                .queryParam("state", "state")
+                .queryParam("code_challenge", codeChallenge())
+                .queryParam("code_challenge_method", "S256")
+                .session(session)
+            )
+            .andExpect(redirectedUrl("/login?continue"));
+        // As Chrome asks every page it opens with DevTools open.
+        this.mockMvc.perform(get("/.well-known/appspecific/com.chrome.devtools.json").session(session));
+
+        this.mockMvc.perform(post("/login?continue")
+                .param("username", FIELD_AGENT)
+                .param("password", DEV_PASSWORD)
+                .with(csrf())
+                .session(session)
+            )
+            .andExpect(redirectedUrl("/continuing?continue"));
+        String notice = this.mockMvc.perform(get("/continuing?continue").session(session))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+        String continueTo = HtmlUtils.htmlUnescape(notice.replaceFirst("(?s).*content=\"2;url=([^\"]+)\".*", "$1"));
+        assertThat(continueTo).startsWith("http://localhost/oauth2/authorize?");
+    }
+
+    @Test
     void theContinuingPageWithNothingToContinueOpensTheHub() throws Exception {
         MockHttpSession session = this.logIn(FIELD_AGENT);
 

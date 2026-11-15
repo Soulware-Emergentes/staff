@@ -35,6 +35,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.savedrequest.NullRequestCache;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -155,6 +156,10 @@ public class SecurityConfiguration {
                 .permitAll()
             )
             .logout(logout -> logout.logoutSuccessHandler(postLogoutRedirect))
+            // Only an authorization request is continued after a login, and the first chain saves it.
+            // Saving here too would let whatever the browser asks for meanwhile, such as the file
+            // Chrome asks every page for with DevTools open, replace it.
+            .requestCache(cache -> cache.requestCache(new NullRequestCache()))
             .build();
     }
 
