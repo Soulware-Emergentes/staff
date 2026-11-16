@@ -1,0 +1,174 @@
+package lat.soulware.staff.identityprovider.infrastructure.persistence.clientregistration;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.stereotype.Component;
+
+import lat.soulware.staff.identityprovider.application.queries.clients.criteria.ClientByClientId;
+import lat.soulware.staff.identityprovider.application.queries.clients.criteria.ClientById;
+import lat.soulware.staff.identityprovider.application.queries.clients.criteria.ClientsOfGroups;
+import lat.soulware.staff.identityprovider.application.queries.clients.projections.ClientProjection;
+import lat.soulware.staff.identityprovider.application.queries.clients.results.ClientResult;
+import lat.soulware.staff.identityprovider.application.queries.clients.results.LaunchableClientResult;
+
+/**
+ * Reads a client registration with how it gets tokens, its redirect URIs, the APIs it may call, and
+ * what it may ask for there.
+ */
+@Component
+public class JdbcClientProjection implements ClientProjection {
+
+    private static final String FIND_BY_CLIENT_ID = """
+        SELECT c.id, c.client_id, a.name AS application_name, c.environment, e.name AS environment_name,
+               c.kind, c.secret_hash
+        FROM client_registrations c
+        JOIN applications a ON a.id = c.application_id
+        JOIN environments e ON e.code = c.environment
+        WHERE c.client_id = :key""";
+
+    private static final String FIND_BY_ID = """
+        SELECT c.id, c.client_id, a.name AS application_name, c.environment, e.name AS environment_name,
+               c.kind, c.secret_hash
+        FROM client_registrations c
+        JOIN applications a ON a.id = c.application_id
+        JOIN environments e ON e.code = c.environment
+        WHERE c.id = :key""";
+
+    private static final String FIND_GRANT_TYPES = """
+        SELECT grant_type
+        FROM client_grant_types
+        WHERE client_registration_id = :id
+        ORDER BY grant_type""";
+
+    private static final String FIND_REDIRECT_URIS = """
+        SELECT uri
+        FROM client_redirect_uris
+        WHERE client_registration_id = :id AND kind = :kind
+        ORDER BY uri""";
+
+    private static final String FIND_RESOURCES = """
+        SELECT r.identifier
+        FROM client_resources cr
+        JOIN api_resources r ON r.id = cr.resource_id
+        WHERE cr.client_registration_id = :id
+        ORDER BY r.identifier""";
+
+    private static final String FIND_ROLES = """
+        SELECT DISTINCT ar.value
+        FROM client_resources cr
+        JOIN api_roles ar ON ar.resource_id = cr.resource_id
+        WHERE cr.client_registration_id = :id
+        ORDER BY ar.value""";
+
+    private static final String FIND_GRANTED_SCOPES = """
+        SELECT DISTINCT s.value
+        FROM scope_grants g
+        JOIN api_scopes s ON s.id = g.scope_id
+        WHERE g.client_registration_id = :id
+        ORDER BY s.value""";
+
+    private static final String FIND_LAUNCHABLE = """
+        SELECT DISTINCT c.client_id, a.name AS application_name, c.environment, e.name AS environment_name,
+               c.home_uri
+        FROM client_registrations c
+        JOIN applications a ON a.id = c.application_id
+        JOIN environments e ON e.code = c.environment
+        JOIN client_resources cr ON cr.client_registration_id = c.id
+        JOIN api_roles ar ON ar.resource_id = cr.resource_id
+        JOIN role_assignments ra ON ra.role_id = ar.id
+        JOIN client_grant_types g ON g.client_registration_id = c.id AND g.grant_type = 'AUTHORIZATION_CODE'
+        WHERE c.home_uri IS NOT NULL AND ra.group_id IN (:groupIds)
+        ORDER BY environment_name, application_name, c.client_id""";
+
+    private final NamedParameterJdbcTemplate jdbc;
+
+    public JdbcClientProjection(NamedParameterJdbcTemplate jdbc) {
+        this.jdbc = jdbc;
+    }
+
+    @Override
+    public Optional<ClientResult> findByClientId(ClientByClientId criteria) {
+        return this.find(FIND_BY_CLIENT_ID, criteria.clientId());
+    }
+
+    @Override
+    public Optional<ClientResult> findById(ClientById criteria) {
+        return this.find(FIND_BY_ID, criteria.id());
+    }
+
+    @Override
+    public List<LaunchableClientResult> findLaunchable(ClientsOfGroups criteria) {
+        if (criteria.groupIds().isEmpty()) {
+            return List.of();
+        }
+        MapSqlParameterSource parameters = new MapSqlParameterSource("groupIds", criteria.groupIds());
+
+        return this.jdbc.query(FIND_LAUNCHABLE, parameters, (row, rowNumber) -> new LaunchableClientResult(
+            row.getString("client_id"),
+            row.getString("application_name"),
+            row.getString("environment"),
+            row.getString("environment_name"),
+            row.getString("home_uri")
+        ));
+    }
+
+    private Optional<ClientResult> find(String query, Object key) {
+        MapSqlParameterSource parameters = new MapSqlParameterSource("key", key);
+
+        return this.jdbc.query(query, parameters, (row, rowNumber) -> new Registration(
+                row.getObject("id", UUID.class),
+                row.getString("client_id"),
+                row.getString("application_name"),
+                row.getString("environment"),
+                row.getString("environment_name"),
+                row.getString("kind"),
+                row.getString("secret_hash")
+            ))
+            .stream()
+            .findFirst()
+            .map(this::complete);
+    }
+
+    private ClientResult complete(Registration registration) {
+        MapSqlParameterSource byId = new MapSqlParameterSource("id", registration.id());
+
+        return new ClientResult(
+            registration.id(),
+            registration.clientId(),
+            registration.applicationName(),
+            registration.environment(),
+            registration.environmentName(),
+            registration.kind(),
+            registration.secretHash(),
+            this.jdbc.queryForList(FIND_GRANT_TYPES, byId, String.class),
+            this.redirectUris(registration.id(), "LOGIN"),
+            this.redirectUris(registration.id(), "LOGOUT"),
+            this.jdbc.queryForList(FIND_RESOURCES, byId, String.class),
+            this.jdbc.queryForList(FIND_ROLES, byId, String.class),
+            this.jdbc.queryForList(FIND_GRANTED_SCOPES, byId, String.class)
+        );
+    }
+
+    private List<String> redirectUris(UUID id, String kind) {
+        MapSqlParameterSource parameters = new MapSqlParameterSource()
+            .addValue("id", id)
+            .addValue("kind", kind);
+
+        return this.jdbc.queryForList(FIND_REDIRECT_URIS, parameters, String.class);
+    }
+
+    private record Registration(
+        UUID id,
+        String clientId,
+        String applicationName,
+        String environment,
+        String environmentName,
+        String kind,
+        String secretHash
+    ) {
+    }
+}

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title th:text="#{hub.page-title}">Applications</title>
+    <link rel="stylesheet" th:href="@{/css/tokens.css}" />
+    <link rel="stylesheet" th:href="@{/css/hub.css}" />
+  </head>
+  <body th:with="grouped=${#lists.size(environments) > 1}">
+    <a class="skip-link" href="#content" th:text="#{hub.skip-to-content}">Skip to content</a>
+
+    <header class="topbar page-enter">
+      <div class="topbar__inner">
+        <img class="topbar__logo" th:src="@{/images/depro-horizontal-color.svg}" width="275" height="72" alt="DEPRO" />
+
+        <div class="topbar__account">
+          <div class="person" th:if="${person != null}">
+            <span class="person__avatar" aria-hidden="true" th:text="${person.initials()}">DU</span>
+            <span class="person__text">
+              <span class="person__name" th:text="${person.displayName()}">Dev User</span>
+              <span class="person__job" th:text="${person.jobTitle()}">Software developer</span>
+            </span>
+          </div>
+          <form method="post" th:action="@{/logout}">
+            <button class="button button--secondary" type="submit">
+              <svg class="button__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4" />
+              </svg>
+              <span th:text="#{hub.sign-out}">Sign out</span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="content" class="hub page-enter" tabindex="-1">
+      <div class="hub__intro">
+        <h1 class="hub__greeting"
+            th:text="${person != null} ? #{hub.greeting(${person.firstName()})} : #{hub.greeting-anonymous}">
+          Hello, Dev
+        </h1>
+        <p class="hub__lead" th:if="${applicationCount > 0}"
+           th:text="${applicationCount == 1} ? #{hub.lead.one} : #{hub.lead.many(${applicationCount})}">
+          You have access to 2 applications. Choose one to continue.
+        </p>
+      </div>
+
+      <section class="empty" th:if="${applicationCount == 0}" aria-labelledby="empty-title">
+        <span class="empty__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <rect x="3" y="3" width="7" height="7" rx="1.5" />
+            <rect x="14" y="3" width="7" height="7" rx="1.5" />
+            <rect x="3" y="14" width="7" height="7" rx="1.5" />
+            <path d="M17.5 14v7M14 17.5h7" />
+          </svg>
+        </span>
+        <div class="empty__copy">
+          <h2 id="empty-title" class="empty__title" th:text="#{hub.empty.title}">No applications yet</h2>
+          <p class="empty__text" th:text="#{hub.empty.text}">
+            Your account is not assigned to any application. Ask your administrator for access.
+          </p>
+        </div>
+      </section>
+
+      <section th:each="environment : ${environments}" class="environment"
+               th:attr="aria-labelledby=${grouped} ? ${'environment-' + environment.code()} : null,
+                        aria-label=${grouped} ? null : #{hub.applications}">
+        <h2 th:if="${grouped}" class="environment__title" th:id="${'environment-' + environment.code()}">
+          <span th:text="${environment.name()}">Development</span>
+          <span class="environment__count" th:text="${#lists.size(environment.applications())}">2</span>
+        </h2>
+
+        <ul class="cards" role="list">
+          <li th:each="launchable : ${environment.applications()}">
+            <a class="card" th:href="@{/opening(client=${launchable.clientId()})}"
+               th:attr="aria-label=${launchable.environmentName() == null}
+                          ? #{hub.open(${launchable.name()})}
+                          : #{hub.open-in-environment(${launchable.name()}, ${launchable.environmentName()})}">
+              <span class="card__body">
+                <span class="card__top">
+                  <span class="card__monogram" aria-hidden="true" th:text="${launchable.monogram()}">SGT</span>
+                  <span th:if="${launchable.environmentName() != null}"
+                        class="badge" th:classappend="${'badge--' + launchable.environment()}"
+                        th:text="${launchable.environmentName()}">Development</span>
+                </span>
+                <span class="card__text">
+                  <span class="card__name" th:text="${launchable.name()}">SGT</span>
+                  <span class="card__host" th:text="${launchable.host()}">localhost:4200</span>
+                </span>
+              </span>
+              <span class="card__action" aria-hidden="true">
+                <span th:text="#{hub.open-label}">Open</span>
+                <svg class="card__arrow" viewBox="0 0 24 24" focusable="false"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+              </span>
+            </a>
+          </li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>

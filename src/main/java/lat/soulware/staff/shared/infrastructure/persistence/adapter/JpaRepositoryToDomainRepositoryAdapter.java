@@ -150,7 +150,7 @@ public abstract class JpaRepositoryToDomainRepositoryAdapter<
         }
         Set<ID> requested = Set.copyOf(ids);
         List<K> keys = requested.stream()
-            .map(AggregateId::value)
+            .map(aggregateId -> aggregateId.value())
             .toList();
         List<E> found = this.delegate().findAllById(keys);
 

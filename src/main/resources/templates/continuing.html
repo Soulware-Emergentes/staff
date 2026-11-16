@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Long enough to be read, as the applications' own redirect notices stay up. -->
+    <meta http-equiv="refresh" th:content="${'2;url=' + continueTo}" />
+    <title th:text="#{continuing.page-title}">Redirecting</title>
+    <link rel="stylesheet" th:href="@{/css/tokens.css}" />
+    <link rel="stylesheet" th:href="@{/css/login.css}" />
+  </head>
+  <body>
+    <main class="notice page-enter page-enter--notice">
+      <div class="notice__body" role="status" aria-live="polite">
+        <span class="notice__spinner" aria-hidden="true"></span>
+        <div class="notice__text">
+          <p
+            class="notice__title"
+            th:text="${requestingApplication == null} ? #{continuing.title} : (${requestingEnvironment == null} ? #{continuing.title.client(${requestingApplication})} : #{continuing.title.client-in-environment(${requestingApplication}, ${requestingEnvironment})})"
+          >
+            Redirecting to SGT (Development)
+          </p>
+          <p class="notice__description" th:text="#{continuing.description}">You are signed in. Your session continues there.</p>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

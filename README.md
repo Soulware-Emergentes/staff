@@ -1,8 +1,63 @@
 # Staff
 
-A starting point for building a modular monolith with Spring Boot, structured around domain-driven design. Spring Modulith enforces the module boundaries, Flyway owns the schema, and Postgres is the only supported database.
+The organization's directory and the identity provider in front of it, standing in for Active Directory and Entra ID until those are in place. Services talk to it the way they would talk to the real pair, so moving to the real deployment changes configuration and the directory's adapters, and nothing that calls it.
+
+Built as a modular monolith with Spring Boot, structured around domain-driven design. Spring Modulith enforces the module boundaries, Flyway owns the schema, and Postgres is the only supported database.
 
 Java 25, Spring Boot 4.1, Spring Modulith 2.1.
+
+## Modules
+
+| Module | Stands in for | Holds |
+|---|---|---|
+| `directory` | Active Directory | People, their job title and department, groups and membership, the password check |
+| `identityprovider` | Entra ID or Keycloak | API resources and their roles and scopes, client registrations, group-to-role assignments, token issuance |
+
+A person's job and department say who they are and grant nothing. What a person may do in an application is a role that application defines, held through a group. The identity provider reaches the directory only through `DirectoryApi`: check a password, describe people, list a person's groups. Those three questions are what an LDAP adapter answers once the real directory is in place, through `CredentialProjection`, `PersonProjection` and `GroupMembershipProjection`.
+
+## Endpoints
+
+| Concern | Endpoint | Used by |
+|---|---|---|
+| Discovery | `GET /.well-known/openid-configuration` | Frontends, sgt, poi |
+| Signing keys | `GET /oauth2/jwks` | Services validating tokens |
+| Login | `GET /oauth2/authorize` (authorization code with PKCE), `/login` | Frontends |
+| Tokens | `POST /oauth2/token` (authorization code, client credentials) | Frontends, services |
+| Current user | `GET /userinfo` | Frontends |
+| Logout | `GET /connect/logout` | Frontends |
+| Directory | `GET /api/v3/people`, `POST /api/v3/people/lookup` | Services, with a token for the directory API |
+
+## Tokens
+
+Every deployment of an application is registered on its own, so `sgt-api-dev` and `sgt-api-prod` are two API resources with their own role assignments. A token names one API in `aud`, and that API accepts no other.
+
+A frontend logs a person in with a scope naming the API and, optionally, the role to act as: `scope=openid profile sgt-api-dev act-as:general-management-assistant`. The login is refused with `access_denied` when the person's groups hold no role on that API, or not the role asked for. Asking for no role works when the person holds exactly one; otherwise the token carries no active role and the frontend asks again with the one picked. Asking again while the login session lasts needs no password, which is how a person switches roles.
+
+| Token | Issued to | Carries |
+|---|---|---|
+| Person's access token | A frontend, for one API | `sub` (objectGUID), `aud`, `azp`, `token_use: user`, `roles` (the active one), `eligible_roles` |
+| Service access token | A confidential client, for one API | `sub` (client id), `aud`, `azp`, `token_use: service`, `scope` (what it was granted there) |
+| ID token | A frontend | `sub`, `preferred_username`, `name`, `job_title`, `department` |
+
+Userinfo answers with the ID token's claims. Public clients get no refresh token, so a frontend logs in again when its access token expires. Login sessions and issued authorizations live in memory, so a restart logs everyone out; tokens issued before it still validate, since the signing key is read from files.
+
+A directory lookup resolves at most 100 GUIDs per request, whatever the people's jobs. GUIDs nobody holds come back under `notFound`.
+
+## Seed data
+
+The schema is the same everywhere. What an environment starts with comes from `db/seed/<STAFF_ENVIRONMENT>`; production has no seed folder, and its registrations are entered as data. The dev seed holds:
+
+- 30 field agents, 10 general management assistants and one developer, `devuser`. All of them log in with `staff-dev-password`.
+- Groups filled from the job title, the way a dynamic group fills from a directory attribute, plus `SGT-Developers`, which holds every sgt and poi role in dev, and `POI-Planners` and `POI-Analysts`, which start empty.
+- `sgt-api-dev` with the roles `field-agent`, `general-management-assistant` and `admin`, and the frontend `sgt-web-dev` registered to log people into it.
+- `poi-api-dev`, `staff-directory-api-dev` and `beneficiarios-api-dev` with their scopes, and `sgt-service-dev`, sgt's backend, granted them. Its secret is `sgt-service-dev-secret`.
+- `poi-api-dev`'s roles `planner`, `analyst` and `admin`, and the frontend `poi-web-dev` registered to log people into it.
+
+## Moving to the real deployment
+
+The directory's three projection adapters are replaced by LDAP ones: a bind for the password check, and searches for people and group membership. Nothing above them changes.
+
+The identity provider is replaced by configuration. Services point their issuer at the real one, their audiences at the identifiers their APIs are registered under there, and their claim names at whatever it calls them. The registrations, roles and assignments in the seed files are recreated in the real provider.
 
 ## Requirements
 
@@ -29,7 +84,7 @@ export STAFF_APP_PASSWORD='...'
 sudo -iu postgres psql -f scripts/db/setup-roles.sql
 ```
 
-Then copy [`.env.example`](.env.example) to `.env` and fill in the same two passwords. `.env` is gitignored.
+Then copy [`.env.example`](.env.example) to `.env` and fill in the same two passwords. `.env` is gitignored. Create the signing key pair with the `openssl` commands in `.env.example`; `keys/` is gitignored too.
 
 ```sh
 cp .env.example .env
